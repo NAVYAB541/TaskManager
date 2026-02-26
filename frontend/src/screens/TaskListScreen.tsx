@@ -16,6 +16,7 @@ import { RootStackParamList, Task } from '../types';
 import { COLORS } from '../constants/Theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
+import { cancelTaskReminder } from '../utils/notifications';
 
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
@@ -86,6 +87,7 @@ export default function TaskListScreen({
         style: 'destructive',
         onPress: async () => {
           try {
+            await cancelTaskReminder(task.id);
             await fetch(`${API_URL}/${task.id}`, { method: 'DELETE' });
             loadTasks();
           } catch {

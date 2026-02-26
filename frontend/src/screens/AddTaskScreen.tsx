@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { scheduleTaskReminder } from '../utils/notifications';
 import {
   View,
   Text,
@@ -29,8 +30,9 @@ export default function AddTaskScreen({ navigation }: Props) {
 
   const addTask = async () => {
     if (!title.trim()) return Alert.alert('Validation', 'Task title is required');
+
     try {
-      await fetch(API_URL, {
+      const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -41,6 +43,13 @@ export default function AddTaskScreen({ navigation }: Props) {
           completed: false,
         }),
       });
+
+      const newTask = await res.json();
+
+      if (dueDate) {
+        await scheduleTaskReminder(newTask.id, title, dueDate.toISOString());
+      }
+
       navigation.goBack();
     } catch {
       Alert.alert('Error', 'Could not add task');

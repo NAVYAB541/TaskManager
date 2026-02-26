@@ -17,6 +17,7 @@ import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
+import { cancelTaskReminder, scheduleTaskReminder } from '../utils/notifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDetails'>;
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
@@ -32,6 +33,7 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
 
   const updateTask = async () => {
     if (!title.trim()) return Alert.alert('Validation', 'Task title is required');
+
     try {
       await fetch(`${API_URL}/${task.id}`, {
         method: 'PUT',
@@ -44,12 +46,19 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
           completed,
         }),
       });
+
+      if (completed) {
+        await cancelTaskReminder(task.id);
+      } else if (dueDate) {
+        await scheduleTaskReminder(task.id, title, dueDate.toISOString());
+      }
+
       navigation.goBack();
     } catch {
       Alert.alert('Error', 'Could not update task');
     }
   };
-
+  
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <Text style={styles.label}>Title</Text>
