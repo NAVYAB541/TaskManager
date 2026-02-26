@@ -17,7 +17,7 @@ import { COLORS } from '../constants/Theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 
-const API_URL = 'https://taskmanagerbackend-n5g5.onrender.com/tasks';
+const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
 export default function TaskListScreen({
   navigation,

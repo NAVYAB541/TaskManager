@@ -18,7 +18,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddTask'>;
-const API_URL = 'https://taskmanagerbackend-n5g5.onrender.com/tasks';
+const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
 export default function AddTaskScreen({ navigation }: Props) {
   const [title, setTitle] = useState('');

@@ -19,7 +19,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDetails'>;
-const API_URL = 'https://taskmanagerbackend-n5g5.onrender.com/tasks';
+const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
 export default function TaskDetailsScreen({ navigation, route }: Props) {
   const { task } = route.params;
