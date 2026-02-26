@@ -28,6 +28,24 @@ export default function TaskListScreen({
   const [filter, setFilter] = useState<'all' | 'completed' | 'pending'>('all');
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate' | 'title'>('dueDate');
 
+  const computeProductivityScore = (tasks: Task[]) => {
+    if (tasks.length === 0) return 0;
+
+    let score = 0;
+    tasks.forEach(task => {
+      const weight = task.priority === 'high' ? 3 : task.priority === 'medium' ? 2 : 1;
+      if (task.completed) score += weight;
+    });
+
+    const maxScore = tasks.reduce((acc, t) => {
+      return acc + (t.priority === 'high' ? 3 : t.priority === 'medium' ? 2 : 1);
+    }, 0);
+
+    return maxScore ? Math.round((score / maxScore) * 100) : 0;
+  };
+
+  const productivityScore = computeProductivityScore(tasks);
+
   // Load tasks with client-side filter + sort
   const loadTasks = async () => {
     try {
@@ -153,6 +171,11 @@ export default function TaskListScreen({
 
   return (
     <View style={styles.container}>
+      {/* AI Productivity Score */}
+      <View style={styles.scoreContainer}>
+        <Text style={styles.scoreText}>🧠 Productivity Score: {productivityScore}/100</Text>
+      </View>
+      
       {/* Add Task Button */}
       <TouchableOpacity
         style={styles.addButton}
@@ -249,4 +272,18 @@ const styles = StyleSheet.create({
   dueDate: { fontSize: 12, color: '#555', marginTop: 2 },
 
   icons: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
+  scoreContainer: {
+    backgroundColor: '#f0f4ff',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+
+  scoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
 });
