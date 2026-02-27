@@ -30,9 +30,16 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
   const [dueDate, setDueDate] = useState<Date | null>(task.dueDate ? new Date(task.dueDate) : null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [completed, setCompleted] = useState(task.completed);
+  const [tagsInput, setTagsInput] = useState('');
+  const [category, setCategory] = useState(task.category || 'General')
 
   const updateTask = async () => {
     if (!title.trim()) return Alert.alert('Validation', 'Task title is required');
+
+    const parsedTags = tagsInput
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(tag => tag.length > 0);
 
     try {
       await fetch(`${API_URL}/${task.id}`, {
@@ -44,6 +51,8 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
           priority,
           dueDate: dueDate?.toISOString() || null,
           completed,
+          category: category.trim() || 'General', // ensure not empty
+          tags: parsedTags, 
         }),
       });
 
@@ -58,7 +67,7 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
       Alert.alert('Error', 'Could not update task');
     }
   };
-  
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <Text style={styles.label}>Title</Text>
@@ -90,6 +99,26 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
           <Picker.Item label="High" value="high" />
         </Picker>
       </View>
+
+      {/* Category Picker */}
+      <Text style={styles.label}>Category</Text>
+      <View style={styles.pickerContainer}>
+        <Picker selectedValue={category} onValueChange={setCategory} style={styles.picker}>
+          <Picker.Item label="General" value="General" />
+          <Picker.Item label="Work" value="Work" />
+          <Picker.Item label="Personal" value="Personal" />
+          <Picker.Item label="Study" value="Study" />
+        </Picker>
+      </View>
+
+      {/* Tags Input */}
+      <Text style={styles.label}>Tags (comma-separated)</Text>
+      <TextInput
+        value={tagsInput}
+        onChangeText={setTagsInput}
+        placeholder="e.g., Urgent, Shopping"
+        style={styles.input}
+      />
 
       <Text style={styles.label}>Due Date</Text>
       <TouchableOpacity

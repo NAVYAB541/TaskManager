@@ -27,9 +27,16 @@ export default function AddTaskScreen({ navigation }: Props) {
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tagsInput, setTagsInput] = useState('');
+  const [category, setCategory] = useState<string>('General');
 
   const addTask = async () => {
     if (!title.trim()) return Alert.alert('Validation', 'Task title is required');
+
+    const parsedTags = tagsInput
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(tag => tag.length > 0);
 
     try {
       const res = await fetch(API_URL, {
@@ -41,6 +48,8 @@ export default function AddTaskScreen({ navigation }: Props) {
           priority,
           dueDate: dueDate?.toISOString(),
           completed: false,
+          category: category.trim() || 'General', // ensure not empty
+          tags: parsedTags,
         }),
       });
 
@@ -93,6 +102,26 @@ export default function AddTaskScreen({ navigation }: Props) {
           <Picker.Item label="High" value="high" />
         </Picker>
       </View>
+
+      {/* Category Picker */}
+      <Text style={styles.label}>Category</Text>
+      <View style={styles.pickerContainer}>
+        <Picker selectedValue={category} onValueChange={setCategory} style={styles.picker}>
+          <Picker.Item label="General" value="General" />
+          <Picker.Item label="Work" value="Work" />
+          <Picker.Item label="Personal" value="Personal" />
+          <Picker.Item label="Study" value="Study" />
+        </Picker>
+      </View>
+
+      {/* Tags Input */}
+      <Text style={styles.label}>Tags (comma-separated)</Text>
+      <TextInput
+        value={tagsInput}
+        onChangeText={setTagsInput}
+        placeholder="e.g., Urgent, Shopping"
+        style={styles.input}
+      />
 
       <Text style={styles.label}>Due Date</Text>
       <TouchableOpacity

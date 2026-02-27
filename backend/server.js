@@ -26,7 +26,7 @@ app.get('/tasks/:id', (req, res) => {
 
 // POST a new task
 app.post('/tasks', (req, res) => {
-  const { title, description, dueDate, priority, completed } = req.body;
+  const { title, description, dueDate, priority, completed, category, tags } = req.body;
 
   if (!title) {
     return res.status(400).json({ error: 'Title is required' });
@@ -40,7 +40,9 @@ app.post('/tasks', (req, res) => {
     description: description ?? '',
     dueDate: dueDate ?? null,
     priority: allowedPriorities.includes(priority) ? priority : 'medium',
-    completed: completed ?? false
+    completed: completed ?? false,
+    category: typeof category === 'string' && category.trim() ? category : 'General',
+    tags: Array.isArray(tags) ? tags.filter(Boolean) : [],
   };
 
   tasks.push(task);
@@ -49,7 +51,7 @@ app.post('/tasks', (req, res) => {
 
 // PUT update a task
 app.put('/tasks/:id', (req, res) => {
-  const { title, description, dueDate, priority, completed } = req.body;
+  const { title, description, dueDate, priority, completed, category, tags } = req.body;
 
   const index = tasks.findIndex(t => t.id === req.params.id);
   if (index === -1) {
@@ -67,6 +69,8 @@ app.put('/tasks/:id', (req, res) => {
       ? priority
       : tasks[index].priority,
     completed: completed ?? tasks[index].completed,
+    category: typeof category === 'string' && category.trim() ? category : tasks[index].category,
+    tags: Array.isArray(tags) ? tags.filter(Boolean) : tasks[index].tags,
   };
 
   res.json(tasks[index]);

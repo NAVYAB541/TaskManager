@@ -27,6 +27,12 @@ export default function TaskListScreen({
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'completed' | 'pending'>('all');
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate' | 'title'>('dueDate');
+  const tagColors = ['#FF6B6B', '#4ECDC4', '#556270', '#C7F464', '#FFA500'];
+
+  const tagColor = (tag: string) => {
+    const hash = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return tagColors[hash % tagColors.length];
+  };
 
   const computeProductivityScore = (tasks: Task[]) => {
     if (tasks.length === 0) return 0;
@@ -143,10 +149,39 @@ export default function TaskListScreen({
           >
             {item.title}
           </Text>
+
+          {item.category && (
+            <Text style={[styles.categoryLabel, { color: COLORS.primary }]}>
+              {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+            </Text>
+          )}
+
+          {(item.tags || []).length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
+              {(item.tags || []).map((tag) => (
+                <View
+                  key={tag}
+                  style={{
+                    backgroundColor: tagColor(tag),
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 12,
+                    marginRight: 4,
+                    marginBottom: 4,
+                  }}
+                  accessible
+                  accessibilityLabel={`Tag: ${tag}`}
+                >
+                  <Text style={{ color: 'white', fontSize: 12 }}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           {item.dueDate && (
             <Text style={styles.dueDate}>
               Due: {dayjs(item.dueDate).format('DD MMM YYYY')}
-              {isOverdue && ' ⚠ Overdue'}
+              {!item.completed && dayjs(item.dueDate).isBefore(dayjs()) ? ' ⚠ Overdue' : ''}
             </Text>
           )}
         </View>
@@ -285,5 +320,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.primary,
+  },
+
+  categoryLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
 });
