@@ -30,7 +30,11 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
   const [dueDate, setDueDate] = useState<Date | null>(task.dueDate ? new Date(task.dueDate) : null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [completed, setCompleted] = useState(task.completed);
-  const [tagsInput, setTagsInput] = useState('');
+  const [tagsInput, setTagsInput] = useState(
+    task.tags && task.tags.length > 0
+      ? task.tags.join(', ')
+      : ''
+  );
   const [category, setCategory] = useState(task.category || 'General')
 
   const updateTask = async () => {
