@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
@@ -129,6 +130,16 @@ app.delete('/tasks/:id', async (req, res) => {
     res.status(400).json({ error: 'Invalid task ID' });
   }
 });
+
+// Keep Render free tier alive by self-pinging every 14 minutes
+const https = require('https');
+setInterval(() => {
+  https.get('https://taskmanager-pn0w.onrender.com/tasks', (res) => {
+    console.log(`Keep-alive ping: ${res.statusCode}`);
+  }).on('error', (err) => {
+    console.error('Keep-alive failed:', err.message);
+  });
+}, 14 * 60 * 1000);
 
 // ─── Start server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
