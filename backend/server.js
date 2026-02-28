@@ -1,101 +1,135 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-let tasks = [];
+// ─── MongoDB connection ───────────────────────────────────────────────────────
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => { console.error('MongoDB connection error:', err); process.exit(1); });
 
-// GET all tasks (optionally filter by completed)
-app.get('/tasks', (req, res) => {
-  const { completed, category, tag } = req.query;
-  let result = tasks;
-
-  // Filter by completion status
-  if (completed !== undefined) {
-    result = result.filter(t => t.completed === (completed === 'true'));
+// ─── Task schema ──────────────────────────────────────────────────────────────
+const taskSchema = new mongoose.Schema(
+  {
+    title:       { type: String, required: true, trim: true },
+    description: { type: String, default: '' },
+    dueDate:     { type: Date, default: null },
+    priority:    { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+    completed:   { type: Boolean, default: false },
+    category:    { type: String, default: 'General', trim: true },
+    tags:        { type: [String], default: [] },
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_, ret) => {
+        ret.id = ret._id.toString();
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
   }
+);
 
-  // Filter by category
-  if (category) {
-    result = result.filter(t => t.category === category);
+const Task = mongoose.model('Task', taskSchema);
+
+// ─── GET all tasks ────────────────────────────────────────────────────────────
+app.get('/tasks', async (req, res) => {
+  try {
+    const { completed, category, tag } = req.query;
+    const filter = {};
+
+    if (completed !== undefined) filter.completed = completed === 'true';
+    if (category)                filter.category  = category;
+    if (tag)                     filter.tags      = tag;
+
+    const tasks = await Task.find(filter).sort({ createdAt: -1 });
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch tasks' });
   }
-
-  // Filter by tag
-  if (tag) {
-    result = result.filter(t => Array.isArray(t.tags) && t.tags.includes(tag));
-  }
-
-  res.json(result);
 });
 
-// GET a single task
-app.get('/tasks/:id', (req, res) => {
-  const task = tasks.find(t => t.id === req.params.id);
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-  res.json(task);
-});
-
-// POST a new task
-app.post('/tasks', (req, res) => {
-  const { title, description, dueDate, priority, completed, category, tags } = req.body;
-
-  if (!title) {
-    return res.status(400).json({ error: 'Title is required' });
+// ─── GET single task ──────────────────────────────────────────────────────────
+app.get('/tasks/:id', async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json(task);
+  } catch (err) {
+    res.status(400).json({ error: 'Invalid task ID' });
   }
-
-  const allowedPriorities = ['low', 'medium', 'high'];
-
-  const task = {
-    id: Date.now().toString(),
-    title,
-    description: description ?? '',
-    dueDate: dueDate ?? null,
-    priority: allowedPriorities.includes(priority) ? priority : 'medium',
-    completed: completed ?? false,
-    category: typeof category === 'string' && category.trim() ? category : 'General',
-    tags: Array.isArray(tags) ? tags.filter(Boolean) : [],
-  };
-
-  tasks.push(task);
-  res.status(201).json(task);
 });
 
-// PUT update a task
-app.put('/tasks/:id', (req, res) => {
-  const { title, description, dueDate, priority, completed, category, tags } = req.body;
+// ─── POST create task ─────────────────────────────────────────────────────────
+app.post('/tasks', async (req, res) => {
+  try {
+    const { title, description, dueDate, priority, completed, category, tags } = req.body;
 
-  const index = tasks.findIndex(t => t.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Task not found' });
+    if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
+
+    const task = await Task.create({
+      title:       title.trim(),
+      description: description ?? '',
+      dueDate:     dueDate     ?? null,
+      priority:    priority    ?? 'medium',
+      completed:   completed   ?? false,
+      category:    category?.trim() || 'General',
+      tags:        Array.isArray(tags) ? tags.filter(Boolean) : [],
+    });
+
+    res.status(201).json(task);
+  } catch (err) {
+    if (err.name === 'ValidationError') return res.status(400).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to create task' });
   }
-
-  const allowedPriorities = ['low', 'medium', 'high'];
-
-  tasks[index] = {
-    ...tasks[index],
-    title: title ?? tasks[index].title,
-    description: description ?? tasks[index].description,
-    dueDate: dueDate ?? tasks[index].dueDate,
-    priority: allowedPriorities.includes(priority)
-      ? priority
-      : tasks[index].priority,
-    completed: completed ?? tasks[index].completed,
-    category: typeof category === 'string' && category.trim() ? category : tasks[index].category,
-    tags: Array.isArray(tags) ? tags.filter(Boolean) : tasks[index].tags,
-  };
-
-  res.json(tasks[index]);
 });
 
-// DELETE a task
-app.delete('/tasks/:id', (req, res) => {
-  const index = tasks.findIndex(t => t.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: 'Task not found' });
-  tasks.splice(index, 1);
-  res.json({ success: true });
+// ─── PUT update task ──────────────────────────────────────────────────────────
+app.put('/tasks/:id', async (req, res) => {
+  try {
+    const { title, description, dueDate, priority, completed, category, tags } = req.body;
+
+    const updates = {};
+    if (title       !== undefined) updates.title       = title.trim();
+    if (description !== undefined) updates.description = description;
+    if (dueDate     !== undefined) updates.dueDate     = dueDate;
+    if (priority    !== undefined) updates.priority    = priority;
+    if (completed   !== undefined) updates.completed   = completed;
+    if (category    !== undefined) updates.category    = category?.trim() || 'General';
+    if (tags        !== undefined) updates.tags        = Array.isArray(tags) ? tags.filter(Boolean) : [];
+
+    const task = await Task.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true } // return updated doc + validate
+    );
+
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json(task);
+  } catch (err) {
+    if (err.name === 'ValidationError') return res.status(400).json({ error: err.message });
+    res.status(400).json({ error: 'Invalid task ID or data' });
+  }
 });
 
+// ─── DELETE task ──────────────────────────────────────────────────────────────
+app.delete('/tasks/:id', async (req, res) => {
+  try {
+    const task = await Task.findByIdAndDelete(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: 'Invalid task ID' });
+  }
+});
+
+// ─── Start server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
