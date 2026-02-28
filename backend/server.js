@@ -9,11 +9,24 @@ let tasks = [];
 
 // GET all tasks (optionally filter by completed)
 app.get('/tasks', (req, res) => {
-  const { completed } = req.query;
+  const { completed, category, tag } = req.query;
   let result = tasks;
+
+  // Filter by completion status
   if (completed !== undefined) {
-    result = tasks.filter(t => t.completed === (completed === 'true'));
+    result = result.filter(t => t.completed === (completed === 'true'));
   }
+
+  // Filter by category
+  if (category) {
+    result = result.filter(t => t.category === category);
+  }
+
+  // Filter by tag
+  if (tag) {
+    result = result.filter(t => Array.isArray(t.tags) && t.tags.includes(tag));
+  }
+
   res.json(result);
 });
 
