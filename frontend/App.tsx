@@ -4,6 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TaskListScreen from './src/screens/TaskListScreen';
 import AddTaskScreen from './src/screens/AddTaskScreen';
 import TaskDetailsScreen from './src/screens/TaskDetailsScreen';
+import LaunchMeScreen from './src/screens/LaunchMeScreen';
+import FocusModeScreen from './src/screens/FocusModeScreen';
 import { RootStackParamList } from './src/types';
 import { requestNotificationPermission } from './src/utils/notifications';
 import { ThemeProvider } from './src/context/ThemeContext';
@@ -22,6 +24,12 @@ export default function App() {
           <Stack.Screen name="TaskList" component={TaskListScreen} options={{ title: 'Tasks' }} />
           <Stack.Screen name="AddTask" component={AddTaskScreen} options={{ title: 'Add Task' }} />
           <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} options={{ title: 'Task Details' }} />
+          <Stack.Screen name="LaunchMe" component={LaunchMeScreen} options={{ title: 'Launch Me' }} />
+          <Stack.Screen
+            name="FocusMode"
+            component={FocusModeScreen}
+            options={{ title: 'Focus Mode', headerShown: false }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </ThemeProvider>

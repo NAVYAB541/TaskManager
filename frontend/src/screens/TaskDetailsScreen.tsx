@@ -22,6 +22,13 @@ import { cancelTaskReminder, scheduleTaskReminder } from '../utils/notifications
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDetails'>;
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
+const ESTIMATE_PRESETS = [5, 15, 30, 60] as const;
+const ENERGY_OPTIONS: { label: string; value: 'high' | 'medium' | 'low' }[] = [
+  { label: '⚡ High', value: 'high' },
+  { label: '🌤 Medium', value: 'medium' },
+  { label: '🌙 Low', value: 'low' },
+];
+
 export default function TaskDetailsScreen({ navigation, route }: Props) {
   const { task } = route.params;
   const [title, setTitle] = useState(task.title);
@@ -30,20 +37,19 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
   const [dueDate, setDueDate] = useState<Date | null>(task.dueDate ? new Date(task.dueDate) : null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [completed, setCompleted] = useState(task.completed);
-  const [tagsInput, setTagsInput] = useState(
-    task.tags && task.tags.length > 0
-      ? task.tags.join(', ')
-      : ''
-  );
-  const [category, setCategory] = useState(task.category || 'General')
+  const [tagsInput, setTagsInput] = useState(task.tags?.join(', ') ?? '');
+  const [category, setCategory] = useState(task.category || 'General');
+  const [estimateMinutes, setEstimateMinutes] = useState<number>(task.estimateMinutes ?? 30);
+  const [energy, setEnergy] = useState<'high' | 'medium' | 'low' | null>(task.energy ?? null);
+  const [nextAction, setNextAction] = useState(task.nextAction ?? '');
 
   const updateTask = async () => {
     if (!title.trim()) return Alert.alert('Validation', 'Task title is required');
 
     const parsedTags = tagsInput
-    .split(',')
-    .map(tag => tag.trim())
-    .filter(tag => tag.length > 0);
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
 
     try {
       await fetch(`${API_URL}/${task.id}`, {
@@ -55,8 +61,11 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
           priority,
           dueDate: dueDate?.toISOString() || null,
           completed,
-          category: category.trim() || 'General', // ensure not empty
-          tags: parsedTags, 
+          category: category.trim() || 'General',
+          tags: parsedTags,
+          estimateMinutes,
+          energy,
+          nextAction: nextAction.trim(),
         }),
       });
 
@@ -91,6 +100,47 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
         style={[styles.input, { height: 80 }]}
       />
 
+      {/* ── Estimate ── */}
+      <Text style={styles.label}>Time Estimate</Text>
+      <View style={styles.presetsRow}>
+        {ESTIMATE_PRESETS.map(mins => (
+          <TouchableOpacity
+            key={mins}
+            style={[styles.presetBtn, estimateMinutes === mins && styles.presetBtnActive]}
+            onPress={() => setEstimateMinutes(mins)}
+          >
+            <Text style={[styles.presetBtnText, estimateMinutes === mins && styles.presetBtnTextActive]}>
+              {mins} min
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── Energy (optional) ── */}
+      <Text style={styles.label}>Energy Required</Text>
+      <View style={styles.energyRow}>
+        {ENERGY_OPTIONS.map(opt => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.energyBtn, energy === opt.value && styles.energyBtnActive]}
+            onPress={() => setEnergy(energy === opt.value ? null : opt.value)}
+          >
+            <Text style={[styles.energyBtnText, energy === opt.value && styles.energyBtnTextActive]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── Next Action (optional) ── */}
+      <Text style={styles.label}>Next Action</Text>
+      <TextInput
+        value={nextAction}
+        onChangeText={setNextAction}
+        placeholder="First concrete step..."
+        style={styles.input}
+      />
+
       <Text style={styles.label}>Priority</Text>
       <View style={styles.pickerContainer}>
         <Picker
@@ -104,7 +154,6 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
         </Picker>
       </View>
 
-      {/* Category Picker */}
       <Text style={styles.label}>Category</Text>
       <View style={styles.pickerContainer}>
         <Picker selectedValue={category} onValueChange={setCategory} style={styles.picker}>
@@ -115,7 +164,6 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
         </Picker>
       </View>
 
-      {/* Tags Input */}
       <Text style={styles.label}>Tags (comma-separated)</Text>
       <TextInput
         value={tagsInput}
@@ -125,10 +173,7 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
       />
 
       <Text style={styles.label}>Due Date</Text>
-      <TouchableOpacity
-        style={styles.dateButton}
-        onPress={() => setShowDatePicker(true)}
-      >
+      <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
         <MaterialIcons name="calendar-today" size={20} color="white" style={{ marginRight: 8 }} />
         <Text style={{ color: 'white' }}>
           {dueDate ? dayjs(dueDate).format('DD MMM YYYY') : 'Select Date'}
@@ -183,6 +228,35 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: { width: '100%' },
+
+  presetsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  presetBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    backgroundColor: 'white',
+    alignItems: 'center',
+  },
+  presetBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '15' },
+  presetBtnText: { fontSize: 13, fontWeight: '700', color: '#aaa' },
+  presetBtnTextActive: { color: COLORS.primary },
+
+  energyRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  energyBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    backgroundColor: 'white',
+    alignItems: 'center',
+  },
+  energyBtnActive: { borderColor: COLORS.secondary, backgroundColor: COLORS.secondary + '15' },
+  energyBtnText: { fontSize: 12, fontWeight: '700', color: '#aaa' },
+  energyBtnTextActive: { color: COLORS.secondary },
+
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',

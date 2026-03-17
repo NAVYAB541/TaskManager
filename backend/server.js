@@ -16,13 +16,16 @@ mongoose
 // ─── Task schema ──────────────────────────────────────────────────────────────
 const taskSchema = new mongoose.Schema(
   {
-    title:       { type: String, required: true, trim: true },
-    description: { type: String, default: '' },
-    dueDate:     { type: Date, default: null },
-    priority:    { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
-    completed:   { type: Boolean, default: false },
-    category:    { type: String, default: 'General', trim: true },
-    tags:        { type: [String], default: [] },
+    title:           { type: String, required: true, trim: true },
+    description:     { type: String, default: '' },
+    dueDate:         { type: Date, default: null },
+    priority:        { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+    completed:       { type: Boolean, default: false },
+    category:        { type: String, default: 'General', trim: true },
+    tags:            { type: [String], default: [] },
+    estimateMinutes: { type: Number, default: 30 },
+    energy:          { type: String, default: null },   // 'high' | 'medium' | 'low' | null
+    nextAction:      { type: String, default: '' },
   },
   {
     timestamps: true,
@@ -40,16 +43,27 @@ const taskSchema = new mongoose.Schema(
 
 const Task = mongoose.model('Task', taskSchema);
 
+// ─── Focus Session schema ───────────────────────────────────────────
+const focusSessionSchema = new mongoose.Schema({
+  taskId:          { type: String, required: true },
+  taskTitle:       { type: String, required: true },
+  estimateMinutes: { type: Number, default: 0 },
+  actualMinutes:   { type: Number, required: true },
+  feelingRating:   { type: String, enum: ['easy', 'okay', 'hard'], required: true },
+  category:        { type: String, default: 'General' },
+  completedAt:     { type: Date, default: Date.now },
+}, { timestamps: true });
+
+const FocusSession = mongoose.model('FocusSession', focusSessionSchema);
+
 // ─── GET all tasks ────────────────────────────────────────────────────────────
 app.get('/tasks', async (req, res) => {
   try {
     const { completed, category, tag } = req.query;
     const filter = {};
-
     if (completed !== undefined) filter.completed = completed === 'true';
     if (category)                filter.category  = category;
     if (tag)                     filter.tags      = tag;
-
     const tasks = await Task.find(filter).sort({ createdAt: -1 });
     res.json(tasks);
   } catch (err) {
@@ -71,20 +85,21 @@ app.get('/tasks/:id', async (req, res) => {
 // ─── POST create task ─────────────────────────────────────────────────────────
 app.post('/tasks', async (req, res) => {
   try {
-    const { title, description, dueDate, priority, completed, category, tags } = req.body;
-
+    const { title, description, dueDate, priority, completed, category, tags,
+            estimateMinutes, energy, nextAction } = req.body;
     if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
-
     const task = await Task.create({
-      title:       title.trim(),
-      description: description ?? '',
-      dueDate:     dueDate     ?? null,
-      priority:    priority    ?? 'medium',
-      completed:   completed   ?? false,
-      category:    category?.trim() || 'General',
-      tags:        Array.isArray(tags) ? tags.filter(Boolean) : [],
+      title:           title.trim(),
+      description:     description ?? '',
+      dueDate:         dueDate     ?? null,
+      priority:        priority    ?? 'medium',
+      completed:       completed   ?? false,
+      category:        category?.trim() || 'General',
+      tags:            Array.isArray(tags) ? tags.filter(Boolean) : [],
+      estimateMinutes: estimateMinutes ?? 30,
+      energy:          energy ?? null,
+      nextAction:      nextAction ?? '',
     });
-
     res.status(201).json(task);
   } catch (err) {
     if (err.name === 'ValidationError') return res.status(400).json({ error: err.message });
@@ -95,23 +110,20 @@ app.post('/tasks', async (req, res) => {
 // ─── PUT update task ──────────────────────────────────────────────────────────
 app.put('/tasks/:id', async (req, res) => {
   try {
-    const { title, description, dueDate, priority, completed, category, tags } = req.body;
-
+    const { title, description, dueDate, priority, completed, category, tags,
+            estimateMinutes, energy, nextAction } = req.body;
     const updates = {};
-    if (title       !== undefined) updates.title       = title.trim();
-    if (description !== undefined) updates.description = description;
-    if (dueDate     !== undefined) updates.dueDate     = dueDate;
-    if (priority    !== undefined) updates.priority    = priority;
-    if (completed   !== undefined) updates.completed   = completed;
-    if (category    !== undefined) updates.category    = category?.trim() || 'General';
-    if (tags        !== undefined) updates.tags        = Array.isArray(tags) ? tags.filter(Boolean) : [];
-
-    const task = await Task.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true, runValidators: true } // return updated doc + validate
-    );
-
+    if (title           !== undefined) updates.title           = title.trim();
+    if (description     !== undefined) updates.description     = description;
+    if (dueDate         !== undefined) updates.dueDate         = dueDate;
+    if (priority        !== undefined) updates.priority        = priority;
+    if (completed       !== undefined) updates.completed       = completed;
+    if (category        !== undefined) updates.category        = category?.trim() || 'General';
+    if (tags            !== undefined) updates.tags            = Array.isArray(tags) ? tags.filter(Boolean) : [];
+    if (estimateMinutes !== undefined) updates.estimateMinutes = estimateMinutes;
+    if (energy          !== undefined) updates.energy          = energy;
+    if (nextAction      !== undefined) updates.nextAction      = nextAction;
+    const task = await Task.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json(task);
   } catch (err) {
@@ -128,6 +140,28 @@ app.delete('/tasks/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: 'Invalid task ID' });
+  }
+});
+
+// ─── POST complete focus session ────────────────────────────────────
+app.post('/tasks/:id/complete-focus', async (req, res) => {
+  try {
+    const { actualMinutes, feelingRating } = req.body;
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    await FocusSession.create({
+      taskId:          task.id,
+      taskTitle:       task.title,
+      estimateMinutes: task.estimateMinutes,
+      actualMinutes,
+      feelingRating,
+      category:        task.category,
+    });
+    task.completed = true;
+    await task.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to log focus session' });
   }
 });
 

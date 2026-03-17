@@ -21,6 +21,20 @@ import dayjs from 'dayjs';
 type Props = NativeStackScreenProps<RootStackParamList, 'AddTask'>;
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
+const ESTIMATE_PRESETS = [5, 15, 30, 60] as const;
+const ENERGY_OPTIONS: { label: string; value: 'high' | 'medium' | 'low' }[] = [
+  { label: '⚡ High', value: 'high' },
+  { label: '🌤 Medium', value: 'medium' },
+  { label: '🌙 Low', value: 'low' },
+];
+
+function inferEnergyFromTime(): 'high' | 'medium' | 'low' {
+  const h = new Date().getHours();
+  if (h >= 6 && h < 12) return 'high';
+  if (h >= 12 && h < 18) return 'medium';
+  return 'low';
+}
+
 export default function AddTaskScreen({ navigation }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -29,14 +43,19 @@ export default function AddTaskScreen({ navigation }: Props) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tagsInput, setTagsInput] = useState('');
   const [category, setCategory] = useState<string>('General');
+  const [estimateMinutes, setEstimateMinutes] = useState<number>(30);
+  const [energy, setEnergy] = useState<'high' | 'medium' | 'low' | null>(null);
+  const [nextAction, setNextAction] = useState('');
+
+  const inferredEnergy = inferEnergyFromTime();
 
   const addTask = async () => {
     if (!title.trim()) return Alert.alert('Validation', 'Task title is required');
 
     const parsedTags = tagsInput
-    .split(',')
-    .map(tag => tag.trim())
-    .filter(tag => tag.length > 0);
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
 
     try {
       const res = await fetch(API_URL, {
@@ -48,8 +67,11 @@ export default function AddTaskScreen({ navigation }: Props) {
           priority,
           dueDate: dueDate?.toISOString(),
           completed: false,
-          category: category.trim() || 'General', // ensure not empty
+          category: category.trim() || 'General',
           tags: parsedTags,
+          estimateMinutes,
+          energy: energy ?? inferredEnergy,
+          nextAction: nextAction.trim(),
         }),
       });
 
@@ -90,6 +112,54 @@ export default function AddTaskScreen({ navigation }: Props) {
         accessibilityLabel="Task description input"
       />
 
+      {/* ── Estimate ── */}
+      <Text style={styles.label}>Time Estimate</Text>
+      <View style={styles.presetsRow}>
+        {ESTIMATE_PRESETS.map(mins => (
+          <TouchableOpacity
+            key={mins}
+            style={[styles.presetBtn, estimateMinutes === mins && styles.presetBtnActive]}
+            onPress={() => setEstimateMinutes(mins)}
+          >
+            <Text style={[styles.presetBtnText, estimateMinutes === mins && styles.presetBtnTextActive]}>
+              {mins} min
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── Energy (optional) ── */}
+      <Text style={styles.label}>
+        Energy Required
+        <Text style={styles.labelHint}>  (inferred: {inferredEnergy} if skipped)</Text>
+      </Text>
+      <View style={styles.energyRow}>
+        {ENERGY_OPTIONS.map(opt => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.energyBtn, energy === opt.value && styles.energyBtnActive]}
+            onPress={() => setEnergy(energy === opt.value ? null : opt.value)}
+          >
+            <Text style={[styles.energyBtnText, energy === opt.value && styles.energyBtnTextActive]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── Next Action (optional) ── */}
+      <Text style={styles.label}>
+        Next Action
+        <Text style={styles.labelHint}>  (optional — first concrete step)</Text>
+      </Text>
+      <TextInput
+        value={nextAction}
+        onChangeText={setNextAction}
+        placeholder="e.g. Open doc and write intro paragraph"
+        style={styles.input}
+        accessibilityLabel="Next action input"
+      />
+
       <Text style={styles.label}>Priority</Text>
       <View style={styles.pickerContainer}>
         <Picker
@@ -103,7 +173,6 @@ export default function AddTaskScreen({ navigation }: Props) {
         </Picker>
       </View>
 
-      {/* Category Picker */}
       <Text style={styles.label}>Category</Text>
       <View style={styles.pickerContainer}>
         <Picker selectedValue={category} onValueChange={setCategory} style={styles.picker}>
@@ -114,7 +183,6 @@ export default function AddTaskScreen({ navigation }: Props) {
         </Picker>
       </View>
 
-      {/* Tags Input */}
       <Text style={styles.label}>Tags (comma-separated)</Text>
       <TextInput
         value={tagsInput}
@@ -157,6 +225,7 @@ export default function AddTaskScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: COLORS.background },
   label: { fontWeight: '600', marginBottom: 6 },
+  labelHint: { fontWeight: '400', color: '#999', fontSize: 12 },
   input: {
     backgroundColor: 'white',
     borderRadius: 10,
@@ -174,6 +243,37 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: { width: '100%' },
+
+  // Estimate presets
+  presetsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  presetBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    backgroundColor: 'white',
+    alignItems: 'center',
+  },
+  presetBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '15' },
+  presetBtnText: { fontSize: 13, fontWeight: '700', color: '#aaa' },
+  presetBtnTextActive: { color: COLORS.primary },
+
+  // Energy selector
+  energyRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  energyBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    backgroundColor: 'white',
+    alignItems: 'center',
+  },
+  energyBtnActive: { borderColor: COLORS.secondary, backgroundColor: COLORS.secondary + '15' },
+  energyBtnText: { fontSize: 12, fontWeight: '700', color: '#aaa' },
+  energyBtnTextActive: { color: COLORS.secondary },
+
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',

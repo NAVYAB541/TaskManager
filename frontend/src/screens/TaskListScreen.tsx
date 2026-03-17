@@ -311,6 +311,13 @@ export default function TaskListScreen({
         )}
       </View>
 
+      {/* ── Launch Me ── */}
+      <TouchableOpacity style={styles.launchButton} onPress={() => navigation.navigate('LaunchMe')}>
+        <MaterialIcons name="bolt" size={20} color="white" />
+        <Text style={styles.launchButtonText}>Launch Me</Text>
+        <Text style={styles.launchButtonSub}>Pick a window → start a task</Text>
+      </TouchableOpacity>
+
       {/* ── Add Task ── */}
       <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddTask')}>
         <MaterialIcons name="add" size={20} color="white" />
@@ -388,6 +395,20 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   sortBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.primary, maxWidth: 70 },
+
+  // Launch Me button
+  launchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#7c3aed',
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  launchButtonText: { color: 'white', fontWeight: '700', fontSize: 16, flex: 1 },
+  launchButtonSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
 
   // Add button
   addButton: {
