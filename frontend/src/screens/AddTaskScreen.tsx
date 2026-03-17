@@ -3,30 +3,29 @@ import { scheduleTaskReminder } from '../utils/notifications';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
   ScrollView,
+  StyleSheet,
   Platform,
 } from 'react-native';
+import {
+  TextInput,
+  Button,
+  Chip,
+  SegmentedButtons,
+  Surface,
+  Icon,
+} from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { COLORS } from '../constants/Theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
-import { MaterialIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddTask'>;
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
 const ESTIMATE_PRESETS = [5, 15, 30, 60] as const;
-const ENERGY_OPTIONS: { label: string; value: 'high' | 'medium' | 'low' }[] = [
-  { label: '⚡ High', value: 'high' },
-  { label: '🌤 Medium', value: 'medium' },
-  { label: '🌙 Low', value: 'low' },
-];
 
 function inferEnergyFromTime(): 'high' | 'medium' | 'low' {
   const h = new Date().getHours();
@@ -46,11 +45,12 @@ export default function AddTaskScreen({ navigation }: Props) {
   const [estimateMinutes, setEstimateMinutes] = useState<number>(30);
   const [energy, setEnergy] = useState<'high' | 'medium' | 'low' | null>(null);
   const [nextAction, setNextAction] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const inferredEnergy = inferEnergyFromTime();
 
   const addTask = async () => {
-    if (!title.trim()) return Alert.alert('Validation', 'Task title is required');
+    if (!title.trim()) return;
 
     const parsedTags = tagsInput
       .split(',')
@@ -58,6 +58,7 @@ export default function AddTaskScreen({ navigation }: Props) {
       .filter(tag => tag.length > 0);
 
     try {
+      setSaving(true);
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,219 +77,210 @@ export default function AddTaskScreen({ navigation }: Props) {
       });
 
       const newTask = await res.json();
-
       if (dueDate) {
         await scheduleTaskReminder(newTask.id, title, dueDate.toISOString());
       }
-
       navigation.goBack();
     } catch {
-      Alert.alert('Error', 'Could not add task');
+      // error handled silently — button re-enables
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ paddingBottom: 40 }}
+      contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.label}>Title</Text>
+      {/* Title */}
       <TextInput
+        label="Title"
         value={title}
         onChangeText={setTitle}
-        placeholder="Enter task title"
+        mode="outlined"
         style={styles.input}
-        accessibilityLabel="Task title input"
+        outlineColor="#ddd"
+        activeOutlineColor={COLORS.primary}
       />
 
-      <Text style={styles.label}>Description</Text>
+      {/* Description */}
       <TextInput
+        label="Description"
         value={description}
         onChangeText={setDescription}
-        placeholder="Enter description"
-        style={[styles.input, { height: 80 }]}
+        mode="outlined"
         multiline
-        accessibilityLabel="Task description input"
+        numberOfLines={3}
+        style={styles.input}
+        outlineColor="#ddd"
+        activeOutlineColor={COLORS.primary}
       />
 
-      {/* ── Estimate ── */}
+      {/* Time estimate */}
       <Text style={styles.label}>Time Estimate</Text>
       <View style={styles.presetsRow}>
         {ESTIMATE_PRESETS.map(mins => (
-          <TouchableOpacity
+          <Chip
             key={mins}
-            style={[styles.presetBtn, estimateMinutes === mins && styles.presetBtnActive]}
+            selected={estimateMinutes === mins}
             onPress={() => setEstimateMinutes(mins)}
+            selectedColor={COLORS.primary}
+            style={styles.presetChip}
+            showSelectedCheck={false}
           >
-            <Text style={[styles.presetBtnText, estimateMinutes === mins && styles.presetBtnTextActive]}>
-              {mins} min
-            </Text>
-          </TouchableOpacity>
+            {mins} min
+          </Chip>
         ))}
       </View>
 
-      {/* ── Energy (optional) ── */}
+      {/* Energy */}
       <Text style={styles.label}>
         Energy Required
-        <Text style={styles.labelHint}>  (inferred: {inferredEnergy} if skipped)</Text>
+        <Text style={styles.labelHint}>  · inferred: {inferredEnergy} if skipped</Text>
       </Text>
-      <View style={styles.energyRow}>
-        {ENERGY_OPTIONS.map(opt => (
-          <TouchableOpacity
-            key={opt.value}
-            style={[styles.energyBtn, energy === opt.value && styles.energyBtnActive]}
-            onPress={() => setEnergy(energy === opt.value ? null : opt.value)}
-          >
-            <Text style={[styles.energyBtnText, energy === opt.value && styles.energyBtnTextActive]}>
-              {opt.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SegmentedButtons
+        value={energy ?? ''}
+        onValueChange={v => setEnergy(v === energy ? null : v as any)}
+        buttons={[
+          { value: 'high',   label: 'High',   icon: 'lightning-bolt' },
+          { value: 'medium', label: 'Medium', icon: 'weather-partly-cloudy' },
+          { value: 'low',    label: 'Low',    icon: 'weather-night' },
+        ]}
+        style={styles.segmented}
+      />
 
-      {/* ── Next Action (optional) ── */}
-      <Text style={styles.label}>
-        Next Action
-        <Text style={styles.labelHint}>  (optional — first concrete step)</Text>
-      </Text>
+      {/* Next action */}
       <TextInput
+        label="Next Action (optional)"
         value={nextAction}
         onChangeText={setNextAction}
+        mode="outlined"
         placeholder="e.g. Open doc and write intro paragraph"
         style={styles.input}
-        accessibilityLabel="Next action input"
+        outlineColor="#ddd"
+        activeOutlineColor={COLORS.primary}
+        left={<TextInput.Icon icon="arrow-right-circle-outline" />}
       />
 
+      {/* Priority */}
       <Text style={styles.label}>Priority</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={priority}
-          onValueChange={(v) => setPriority(v as any)}
-          style={styles.picker}
-        >
-          <Picker.Item label="Low" value="low" />
-          <Picker.Item label="Medium" value="medium" />
-          <Picker.Item label="High" value="high" />
-        </Picker>
-      </View>
+      <SegmentedButtons
+        value={priority}
+        onValueChange={v => setPriority(v as any)}
+        buttons={[
+          { value: 'low',    label: 'Low',    icon: 'chevron-down' },
+          { value: 'medium', label: 'Medium', icon: 'minus' },
+          { value: 'high',   label: 'High',   icon: 'chevron-up' },
+        ]}
+        style={styles.segmented}
+      />
 
+      {/* Category */}
       <Text style={styles.label}>Category</Text>
-      <View style={styles.pickerContainer}>
+      <Surface style={styles.pickerSurface} elevation={0}>
         <Picker selectedValue={category} onValueChange={setCategory} style={styles.picker}>
           <Picker.Item label="General" value="General" />
-          <Picker.Item label="Work" value="Work" />
+          <Picker.Item label="Work"    value="Work" />
           <Picker.Item label="Personal" value="Personal" />
-          <Picker.Item label="Study" value="Study" />
+          <Picker.Item label="Study"  value="Study" />
         </Picker>
-      </View>
+      </Surface>
 
-      <Text style={styles.label}>Tags (comma-separated)</Text>
+      {/* Tags */}
       <TextInput
+        label="Tags (comma-separated)"
         value={tagsInput}
         onChangeText={setTagsInput}
-        placeholder="e.g., Urgent, Shopping"
+        mode="outlined"
+        placeholder="e.g. Urgent, Shopping"
         style={styles.input}
+        outlineColor="#ddd"
+        activeOutlineColor={COLORS.primary}
+        left={<TextInput.Icon icon="tag-multiple-outline" />}
       />
 
+      {/* Due date */}
       <Text style={styles.label}>Due Date</Text>
-      <TouchableOpacity
-        style={styles.dateButton}
+      <Button
+        mode="outlined"
+        icon="calendar"
         onPress={() => setShowDatePicker(true)}
-        accessibilityLabel="Select due date"
+        style={styles.dateButton}
+        textColor={dueDate ? COLORS.primary : '#888'}
       >
-        <MaterialIcons name="calendar-today" size={20} color="white" style={{ marginRight: 8 }} />
-        <Text style={{ color: 'white' }}>
-          {dueDate ? dayjs(dueDate).format('DD MMM YYYY') : 'Select Date'}
-        </Text>
-      </TouchableOpacity>
+        {dueDate ? dayjs(dueDate).format('DD MMM YYYY') : 'Select date'}
+      </Button>
+      {dueDate && (
+        <Button
+          mode="text"
+          onPress={() => setDueDate(null)}
+          textColor={COLORS.danger}
+          compact
+          style={{ alignSelf: 'flex-end', marginTop: -8 }}
+        >
+          Clear
+        </Button>
+      )}
 
       {showDatePicker && (
         <DateTimePicker
           value={dueDate || new Date()}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(e, date) => {
+          onChange={(_, date) => {
             setShowDatePicker(Platform.OS === 'ios');
             if (date) setDueDate(date);
           }}
         />
       )}
 
-      <TouchableOpacity style={styles.saveButton} onPress={addTask} accessibilityLabel="Save task">
-        <Text style={styles.saveButtonText}>Save Task</Text>
-      </TouchableOpacity>
+      {/* Save */}
+      <Button
+        mode="contained"
+        onPress={addTask}
+        loading={saving}
+        disabled={!title.trim() || saving}
+        style={styles.saveButton}
+        contentStyle={styles.saveButtonContent}
+        buttonColor={COLORS.primary}
+      >
+        Save Task
+      </Button>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: COLORS.background },
-  label: { fontWeight: '600', marginBottom: 6 },
-  labelHint: { fontWeight: '400', color: '#999', fontSize: 12 },
-  input: {
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: 16, paddingBottom: 48 },
+
+  input: { backgroundColor: 'white', marginBottom: 16 },
+  label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 8 },
+  labelHint: { fontSize: 12, fontWeight: '400', color: '#aaa' },
+
+  presetsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  presetChip: { flex: 1, justifyContent: 'center' },
+
+  segmented: { marginBottom: 16 },
+
+  pickerSurface: {
     backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  pickerContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#ddd',
     marginBottom: 16,
     overflow: 'hidden',
   },
   picker: { width: '100%' },
 
-  // Estimate presets
-  presetsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  presetBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    backgroundColor: 'white',
-    alignItems: 'center',
-  },
-  presetBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '15' },
-  presetBtnText: { fontSize: 13, fontWeight: '700', color: '#aaa' },
-  presetBtnTextActive: { color: COLORS.primary },
-
-  // Energy selector
-  energyRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  energyBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    backgroundColor: 'white',
-    alignItems: 'center',
-  },
-  energyBtnActive: { borderColor: COLORS.secondary, backgroundColor: COLORS.secondary + '15' },
-  energyBtnText: { fontSize: 12, fontWeight: '700', color: '#aaa' },
-  energyBtnTextActive: { color: COLORS.secondary },
-
   dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 20,
-    justifyContent: 'center',
+    borderColor: '#ddd',
+    marginBottom: 8,
+    justifyContent: 'flex-start',
   },
-  saveButton: {
-    backgroundColor: COLORS.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  saveButtonText: { color: 'white', fontWeight: '600', fontSize: 16 },
+
+  saveButton: { borderRadius: 10, marginTop: 8 },
+  saveButtonContent: { paddingVertical: 6 },
 });

@@ -1,17 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Modal,
-  Pressable,
-} from 'react-native';
+import { View, Text, StyleSheet, Alert, Modal } from 'react-native';
+import { Button, Surface, Icon, TouchableRipple } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { COLORS } from '../constants/Theme';
-import { MaterialIcons } from '@expo/vector-icons';
 
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 type Props = NativeStackScreenProps<RootStackParamList, 'FocusMode'>;
@@ -23,10 +15,10 @@ function formatTime(seconds: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-const RATINGS: { value: FeelingRating; emoji: string; label: string }[] = [
-  { value: 'easy', emoji: '😊', label: 'Easy' },
-  { value: 'okay', emoji: '😐', label: 'Okay' },
-  { value: 'hard', emoji: '😓', label: 'Hard' },
+const RATINGS: { value: FeelingRating; icon: string; label: string; color: string }[] = [
+  { value: 'easy', icon: 'emoticon-happy-outline',   label: 'Easy', color: COLORS.secondary },
+  { value: 'okay', icon: 'emoticon-neutral-outline',  label: 'Okay', color: COLORS.primary },
+  { value: 'hard', icon: 'emoticon-sad-outline',      label: 'Hard', color: COLORS.danger },
 ];
 
 export default function FocusModeScreen({ navigation, route }: Props) {
@@ -78,67 +70,86 @@ export default function FocusModeScreen({ navigation, route }: Props) {
       <View style={styles.header}>
         <Text style={styles.focusLabel}>FOCUS MODE</Text>
         <Text style={styles.taskTitle}>{task.title}</Text>
+
         {!!task.nextAction && (
-          <View style={styles.nextActionBox}>
-            <MaterialIcons name="arrow-forward" size={16} color="#a78bfa" />
+          <Surface style={styles.nextActionBox} elevation={0}>
+            <Icon source="arrow-right-circle" size={18} color="#a78bfa" />
             <Text style={styles.nextActionText}>{task.nextAction}</Text>
-          </View>
+          </Surface>
         )}
       </View>
 
       {/* Timer */}
       <View style={styles.timerSection}>
-        <View style={[styles.timerRing, isOverTime && styles.timerRingOver]}>
+        <Surface
+          style={[styles.timerRing, isOverTime && styles.timerRingOver]}
+          elevation={4}
+        >
           <Text style={styles.timerText}>{formatTime(seconds)}</Text>
-          <Text style={styles.timerSub}>Est: {task.estimateMinutes ?? 30} min</Text>
-        </View>
+          <Text style={styles.timerSub}>Est. {task.estimateMinutes ?? 30} min</Text>
+        </Surface>
+
         {isOverTime && (
-          <View style={styles.overTimeBadge}>
-            <Text style={styles.overTimeText}>Over estimate — you're still making progress!</Text>
-          </View>
+          <Surface style={styles.overTimeBadge} elevation={0}>
+            <Icon source="clock-alert-outline" size={16} color="#f59e0b" />
+            <Text style={styles.overTimeText}>Over estimate — keep going!</Text>
+          </Surface>
         )}
       </View>
 
       {/* Controls */}
       <View style={styles.controls}>
-        <TouchableOpacity
-          style={[styles.controlBtn, running ? styles.pauseBtn : styles.resumeBtn]}
+        <Button
+          mode="contained"
+          icon={running ? 'pause' : 'play'}
           onPress={() => setRunning(r => !r)}
+          style={styles.controlBtn}
+          contentStyle={styles.controlBtnContent}
+          buttonColor={running ? '#374151' : COLORS.secondary}
         >
-          <MaterialIcons name={running ? 'pause' : 'play-arrow'} size={26} color="white" />
-          <Text style={styles.controlBtnText}>{running ? 'Pause' : 'Resume'}</Text>
-        </TouchableOpacity>
+          {running ? 'Pause' : 'Resume'}
+        </Button>
 
-        <TouchableOpacity style={[styles.controlBtn, styles.finishBtn]} onPress={handleFinish}>
-          <MaterialIcons name="check" size={26} color="white" />
-          <Text style={styles.controlBtnText}>Finish</Text>
-        </TouchableOpacity>
+        <Button
+          mode="contained"
+          icon="check"
+          onPress={handleFinish}
+          style={styles.controlBtn}
+          contentStyle={styles.controlBtnContent}
+          buttonColor={COLORS.primary}
+        >
+          Finish
+        </Button>
       </View>
 
       {/* Feeling rating modal */}
       <Modal visible={showRating} transparent animationType="slide">
-        <Pressable style={styles.modalOverlay} onPress={() => {}}>
-          <View style={styles.modalCard}>
+        <View style={styles.modalOverlay}>
+          <Surface style={styles.modalCard} elevation={4}>
             <Text style={styles.modalTitle}>How'd that feel?</Text>
             <Text style={styles.modalSub}>
               You focused for {formatTime(seconds)}
-              {task.estimateMinutes ? ` (estimated ${task.estimateMinutes} min)` : ''}
+              {task.estimateMinutes ? ` · estimated ${task.estimateMinutes} min` : ''}
             </Text>
+
             <View style={styles.ratingRow}>
               {RATINGS.map(r => (
-                <TouchableOpacity
+                <TouchableRipple
                   key={r.value}
-                  style={styles.ratingBtn}
                   onPress={() => handleRating(r.value)}
                   disabled={submitting}
+                  style={styles.ratingBtn}
+                  borderless
                 >
-                  <Text style={styles.ratingEmoji}>{r.emoji}</Text>
-                  <Text style={styles.ratingLabel}>{r.label}</Text>
-                </TouchableOpacity>
+                  <View style={styles.ratingBtnInner}>
+                    <Icon source={r.icon} size={48} color={r.color} />
+                    <Text style={[styles.ratingLabel, { color: r.color }]}>{r.label}</Text>
+                  </View>
+                </TouchableRipple>
               ))}
             </View>
-          </View>
-        </Pressable>
+          </Surface>
+        </View>
       </Modal>
     </View>
   );
@@ -165,10 +176,10 @@ const styles = StyleSheet.create({
   nextActionBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 10,
     backgroundColor: 'rgba(79,70,229,0.2)',
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
   },
   nextActionText: { flex: 1, fontSize: 15, color: '#c4b5fd', lineHeight: 22 },
 
@@ -181,34 +192,26 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(79,70,229,0.1)',
+    backgroundColor: 'rgba(79,70,229,0.12)',
   },
   timerRingOver: { borderColor: '#f59e0b' },
   timerText: { fontSize: 44, fontWeight: '800', color: 'white' },
   timerSub: { fontSize: 13, color: '#666', marginTop: 4 },
   overTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 16,
     backgroundColor: 'rgba(245,158,11,0.15)',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  overTimeText: { color: '#f59e0b', fontWeight: '600', fontSize: 13, textAlign: 'center' },
+  overTimeText: { color: '#f59e0b', fontWeight: '600', fontSize: 13 },
 
   controls: { flexDirection: 'row', gap: 12 },
-  controlBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 14,
-  },
-  pauseBtn: { backgroundColor: '#374151' },
-  resumeBtn: { backgroundColor: COLORS.secondary },
-  finishBtn: { backgroundColor: COLORS.primary },
-  controlBtnText: { color: 'white', fontWeight: '700', fontSize: 16 },
+  controlBtn: { flex: 1, borderRadius: 14 },
+  controlBtnContent: { paddingVertical: 8 },
 
   // Rating modal
   modalOverlay: {
@@ -218,21 +221,21 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     padding: 28,
-    paddingBottom: 48,
+    paddingBottom: 52,
   },
   modalTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#1a1a1a',
-    marginBottom: 8,
     textAlign: 'center',
+    marginBottom: 6,
   },
   modalSub: { fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 28 },
   ratingRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  ratingBtn: { alignItems: 'center', padding: 16 },
-  ratingEmoji: { fontSize: 42, marginBottom: 8 },
-  ratingLabel: { fontSize: 14, fontWeight: '700', color: '#333' },
+  ratingBtn: { borderRadius: 16, overflow: 'hidden' },
+  ratingBtnInner: { alignItems: 'center', padding: 16, gap: 8 },
+  ratingLabel: { fontSize: 14, fontWeight: '700' },
 });
