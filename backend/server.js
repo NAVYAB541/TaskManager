@@ -157,8 +157,6 @@ app.post('/tasks/:id/complete-focus', async (req, res) => {
       feelingRating,
       category:        task.category,
     });
-    task.completed = true;
-    await task.save();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to log focus session' });
