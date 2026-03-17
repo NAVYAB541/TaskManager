@@ -443,15 +443,15 @@ const styles = StyleSheet.create({
   completedTitle: { textDecorationLine: 'line-through', color: '#aaa' },
 
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6 },
-  priorityChip: { height: 24 },
+  priorityChip: {},
   priorityChipText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  categoryChip: { backgroundColor: '#ede9ff', height: 24 },
+  categoryChip: { backgroundColor: '#ede9ff' },
   categoryChipText: { fontSize: 11, color: '#6C63FF', fontWeight: '600' },
-  overdueChip: { backgroundColor: '#ffebee', height: 24 },
+  overdueChip: { backgroundColor: '#ffebee' },
   overdueChipText: { fontSize: 11, color: '#e53935', fontWeight: '700' },
 
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
-  tagChip: { height: 22 },
+  tagChip: {},
   tagChipText: { color: 'white', fontSize: 11, fontWeight: '600' },
 
   dueDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
