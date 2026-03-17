@@ -9,6 +9,7 @@ import FocusModeScreen from './src/screens/FocusModeScreen';
 import { RootStackParamList } from './src/types';
 import { requestNotificationPermission } from './src/utils/notifications';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { Provider as PaperProvider } from 'react-native-paper';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -18,6 +19,7 @@ export default function App() {
   }, []);
 
   return (
+    <PaperProvider>
     <ThemeProvider>
       <NavigationContainer>
         <Stack.Navigator>
@@ -33,5 +35,6 @@ export default function App() {
         </Stack.Navigator>
       </NavigationContainer>
     </ThemeProvider>
+    </PaperProvider>
   );
 }

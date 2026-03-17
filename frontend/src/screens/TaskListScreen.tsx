@@ -1,125 +1,71 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Alert,
   ScrollView,
-  Modal,
-  Pressable,
 } from 'react-native';
+import {
+  Chip,
+  Button,
+  Surface,
+  ProgressBar,
+  IconButton,
+  Menu,
+  ActivityIndicator,
+  Icon,
+} from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList, Task } from '../types';
 import { COLORS } from '../constants/Theme';
-import { MaterialIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import { cancelTaskReminder } from '../utils/notifications';
 
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
-function Chip({
-  label,
-  selected,
-  onPress,
-  color,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  color?: string;
-}) {
-  const bg = selected ? (color ?? COLORS.primary) : '#f0f0f0';
-  const textColor = selected ? 'white' : '#444';
-  return (
-    <TouchableOpacity
-      style={[styles.chip, { backgroundColor: bg }]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      accessibilityLabel={label}
-    >
-      <Text style={[styles.chipText, { color: textColor }]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-// ─── Sort modal ───────────────────────────────────────────────────────────────
-const SORT_OPTIONS: { label: string; value: 'priority' | 'dueDate' | 'title' }[] = [
-  { label: '📅  Due Date', value: 'dueDate' },
-  { label: '🔥  Priority', value: 'priority' },
-  { label: '🔤  Title (A–Z)', value: 'title' },
-];
-
-function SortModal({
-  visible,
-  current,
-  onSelect,
-  onClose,
-}: {
-  visible: boolean;
-  current: string;
-  onSelect: (v: 'priority' | 'dueDate' | 'title') => void;
-  onClose: () => void;
-}) {
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Sort tasks by</Text>
-          {SORT_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              style={[styles.modalRow, current === opt.value && styles.modalRowSelected]}
-              onPress={() => { onSelect(opt.value); onClose(); }}
-            >
-              <Text style={[styles.modalRowText, current === opt.value && { color: COLORS.primary, fontWeight: '700' }]}>
-                {opt.label}
-              </Text>
-              {current === opt.value && (
-                <MaterialIcons name="check" size={20} color={COLORS.primary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Pressable>
-    </Modal>
-  );
-}
-
-// ─── Tag colours ──────────────────────────────────────────────────────────────
 const TAG_PALETTE = ['#FF6B6B', '#4ECDC4', '#556270', '#C7F464', '#FFA500'];
 function tagColor(tag: string) {
   const hash = tag.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   return TAG_PALETTE[hash % TAG_PALETTE.length];
 }
 
-// ─── Priority colours ─────────────────────────────────────────────────────────
 function priorityColor(p?: string) {
   if (p === 'high') return COLORS.danger;
   if (p === 'medium') return COLORS.primary;
   return COLORS.secondary;
 }
 
-// ─── Productivity ring ────────────────────────────────────────────────────────
 function ProductivityBadge({ score }: { score: number }) {
-  const emoji = score >= 80 ? '🚀' : score >= 50 ? '💪' : score > 0 ? '🌱' : '🧠';
   const ringColor = score >= 80 ? '#4CAF50' : score >= 50 ? COLORS.primary : '#FF9800';
+  const iconName = score >= 80 ? 'rocket-launch' : score >= 50 ? 'lightning-bolt' : 'sprout';
   return (
-    <View style={[styles.scoreCard, { borderColor: ringColor }]}>
-      <Text style={styles.scoreEmoji}>{emoji}</Text>
-      <View>
+    <Surface style={styles.scoreCard} elevation={1}>
+      <Icon source={iconName} size={34} color={ringColor} />
+      <View style={{ flex: 1 }}>
         <Text style={styles.scoreLabel}>Productivity Score</Text>
         <Text style={[styles.scoreValue, { color: ringColor }]}>{score}/100</Text>
+        <ProgressBar
+          progress={score / 100}
+          color={ringColor}
+          style={styles.progressBar}
+        />
       </View>
-    </View>
+    </Surface>
   );
 }
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
+const CATEGORIES = ['all', 'General', 'Work', 'Personal', 'Study'];
+
+const SORT_OPTIONS: { label: string; value: 'priority' | 'dueDate' | 'title'; icon: string }[] = [
+  { label: 'Due Date',    value: 'dueDate',   icon: 'calendar' },
+  { label: 'Priority',   value: 'priority',  icon: 'fire' },
+  { label: 'Title (A–Z)', value: 'title',    icon: 'sort-alphabetical-ascending' },
+];
+
 export default function TaskListScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'TaskList'>) {
@@ -130,15 +76,12 @@ export default function TaskListScreen({
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate' | 'title'>('dueDate');
   const [allTags, setAllTags] = useState<string[]>([]);
-  const [sortVisible, setSortVisible] = useState(false);
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
 
-  const CATEGORIES = ['all', 'General', 'Work', 'Personal', 'Study'];
-
-  const computeProductivityScore = (tasks: Task[]) => {
-    if (!tasks.length) return 0;
-    let score = 0;
-    const max = tasks.reduce((acc, t) => acc + (t.priority === 'high' ? 3 : t.priority === 'medium' ? 2 : 1), 0);
-    tasks.forEach(t => { if (t.completed) score += t.priority === 'high' ? 3 : t.priority === 'medium' ? 2 : 1; });
+  const computeProductivityScore = (list: Task[]) => {
+    if (!list.length) return 0;
+    const max = list.reduce((acc, t) => acc + (t.priority === 'high' ? 3 : t.priority === 'medium' ? 2 : 1), 0);
+    const score = list.reduce((acc, t) => acc + (t.completed ? (t.priority === 'high' ? 3 : t.priority === 'medium' ? 2 : 1) : 0), 0);
     return max ? Math.round((score / max) * 100) : 0;
   };
 
@@ -153,9 +96,9 @@ export default function TaskListScreen({
       data.forEach(t => t.tags?.forEach(tag => tagsSet.add(tag)));
       setAllTags(Array.from(tagsSet).sort());
       if (filter === 'completed') data = data.filter(t => t.completed);
-      if (filter === 'pending') data = data.filter(t => !t.completed);
+      if (filter === 'pending')   data = data.filter(t => !t.completed);
       if (categoryFilter !== 'all') data = data.filter(t => t.category === categoryFilter);
-      if (tagFilter !== 'all') data = data.filter(t => t.tags?.includes(tagFilter));
+      if (tagFilter !== 'all')      data = data.filter(t => t.tags?.includes(tagFilter));
       data.sort((a, b) => {
         if (sortBy === 'priority') {
           const o = { high: 1, medium: 2, low: 3 };
@@ -204,132 +147,233 @@ export default function TaskListScreen({
   const renderTask = ({ item }: { item: Task }) => {
     const isOverdue = item.dueDate && !item.completed && dayjs(item.dueDate).isBefore(dayjs());
     const pColor = priorityColor(item.priority);
+
     return (
-      <TouchableOpacity
+      <Surface
         style={[styles.task, { borderLeftColor: pColor }, isOverdue && styles.overdueTask]}
-        onPress={() => navigation.navigate('TaskDetails', { task: item })}
-        accessibilityRole="button"
-        accessibilityLabel={`Task: ${item.title}${isOverdue ? ', overdue' : ''}`}
+        elevation={1}
       >
-        <TouchableOpacity onPress={() => toggleTask(item)} style={styles.checkBtn} accessibilityRole="checkbox" accessibilityState={{ checked: item.completed }}>
-          <MaterialIcons
-            name={item.completed ? 'check-circle' : 'radio-button-unchecked'}
-            size={26}
-            color={item.completed ? '#4CAF50' : pColor}
+        <TouchableOpacity
+          style={styles.taskInner}
+          onPress={() => navigation.navigate('TaskDetails', { task: item })}
+          activeOpacity={0.7}
+        >
+          <IconButton
+            icon={item.completed ? 'check-circle' : 'circle-outline'}
+            iconColor={item.completed ? '#4CAF50' : pColor}
+            size={24}
+            onPress={() => toggleTask(item)}
+            style={styles.checkBtn}
           />
-        </TouchableOpacity>
 
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.taskTitle, item.completed && styles.completedTitle]} numberOfLines={2}>
-            {item.title}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[styles.taskTitle, item.completed && styles.completedTitle]}
+              numberOfLines={2}
+            >
+              {item.title}
+            </Text>
 
-          <View style={styles.metaRow}>
-            {item.priority && (
-              <View style={[styles.priorityBadge, { backgroundColor: pColor + '22', borderColor: pColor }]}>
-                <Text style={[styles.priorityText, { color: pColor }]}>
-                  {item.priority.toUpperCase()}
+            <View style={styles.metaRow}>
+              <Chip
+                compact
+                mode="flat"
+                style={[styles.priorityChip, { backgroundColor: pColor + '22' }]}
+                textStyle={[styles.priorityChipText, { color: pColor }]}
+              >
+                {item.priority?.toUpperCase()}
+              </Chip>
+
+              {item.category && (
+                <Chip
+                  compact
+                  mode="flat"
+                  style={styles.categoryChip}
+                  textStyle={styles.categoryChipText}
+                >
+                  {item.category}
+                </Chip>
+              )}
+
+              {isOverdue && (
+                <Chip
+                  compact
+                  mode="flat"
+                  icon="alert"
+                  style={styles.overdueChip}
+                  textStyle={styles.overdueChipText}
+                >
+                  Overdue
+                </Chip>
+              )}
+            </View>
+
+            {(item.tags || []).length > 0 && (
+              <View style={styles.tagRow}>
+                {(item.tags || []).map(tag => (
+                  <Chip
+                    key={tag}
+                    compact
+                    mode="flat"
+                    style={[styles.tagChip, { backgroundColor: tagColor(tag) }]}
+                    textStyle={styles.tagChipText}
+                  >
+                    {tag}
+                  </Chip>
+                ))}
+              </View>
+            )}
+
+            {item.dueDate && (
+              <View style={styles.dueDateRow}>
+                <Icon
+                  source="calendar"
+                  size={13}
+                  color={isOverdue ? COLORS.danger : '#888'}
+                />
+                <Text style={[styles.dueDate, isOverdue && { color: COLORS.danger }]}>
+                  {dayjs(item.dueDate).format('DD MMM YYYY')}
                 </Text>
               </View>
             )}
-            {item.category && (
-              <Text style={styles.categoryChip}>
-                {item.category}
-              </Text>
-            )}
-            {isOverdue && <Text style={styles.overdueBadge}>⚠ Overdue</Text>}
           </View>
 
-          {(item.tags || []).length > 0 && (
-            <View style={styles.tagRow}>
-              {(item.tags || []).map(tag => (
-                <View key={tag} style={[styles.tagBadge, { backgroundColor: tagColor(tag) }]}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {item.dueDate && (
-            <Text style={[styles.dueDate, isOverdue && { color: COLORS.danger }]}>
-              📅 {dayjs(item.dueDate).format('DD MMM YYYY')}
-            </Text>
-          )}
-        </View>
-
-        <TouchableOpacity onPress={() => deleteTask(item)} style={styles.deleteBtn} accessibilityRole="button" accessibilityLabel="Delete task">
-          <MaterialIcons name="delete-outline" size={22} color="#ccc" />
+          <IconButton
+            icon="delete-outline"
+            iconColor="#ccc"
+            size={20}
+            onPress={() => deleteTask(item)}
+            style={styles.deleteBtn}
+          />
         </TouchableOpacity>
-      </TouchableOpacity>
+      </Surface>
     );
   };
 
-  const sortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label ?? 'Sort';
+  const currentSort = SORT_OPTIONS.find(o => o.value === sortBy)!;
 
   return (
     <View style={styles.container}>
       <ProductivityBadge score={productivityScore} />
 
-      {/* ── Filter section ── */}
+      {/* ── Filters ── */}
       <View style={styles.filterSection}>
-        {/* Row 1: status chips + sort button */}
         <View style={styles.filterRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
             {(['all', 'pending', 'completed'] as const).map(f => (
-              <Chip key={f} label={f.charAt(0).toUpperCase() + f.slice(1)} selected={filter === f} onPress={() => setFilter(f)} />
+              <Chip
+                key={f}
+                selected={filter === f}
+                onPress={() => setFilter(f)}
+                style={styles.filterChip}
+                selectedColor={COLORS.primary}
+                compact
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </Chip>
             ))}
           </ScrollView>
-          <TouchableOpacity style={styles.sortBtn} onPress={() => setSortVisible(true)}>
-            <MaterialIcons name="sort" size={16} color={COLORS.primary} />
-            <Text style={styles.sortBtnText} numberOfLines={1}>
-              {sortLabel.split('  ')[1]}
-            </Text>
-          </TouchableOpacity>
+
+          <Menu
+            visible={sortMenuVisible}
+            onDismiss={() => setSortMenuVisible(false)}
+            anchor={
+              <Button
+                mode="outlined"
+                icon={currentSort.icon}
+                onPress={() => setSortMenuVisible(true)}
+                compact
+                textColor={COLORS.primary}
+                style={styles.sortBtn}
+              >
+                {currentSort.label}
+              </Button>
+            }
+          >
+            {SORT_OPTIONS.map(opt => (
+              <Menu.Item
+                key={opt.value}
+                leadingIcon={opt.icon}
+                title={opt.label}
+                trailingIcon={sortBy === opt.value ? 'check' : undefined}
+                onPress={() => { setSortBy(opt.value); setSortMenuVisible(false); }}
+              />
+            ))}
+          </Menu>
         </View>
 
-        {/* Row 2: category chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
           {CATEGORIES.map(cat => (
             <Chip
               key={cat}
-              label={cat === 'all' ? 'All Categories' : cat}
               selected={categoryFilter === cat}
               onPress={() => setCategoryFilter(cat)}
-              color="#6C63FF"
-            />
+              style={styles.filterChip}
+              selectedColor="#6C63FF"
+              compact
+            >
+              {cat === 'all' ? 'All Categories' : cat}
+            </Chip>
           ))}
         </ScrollView>
 
-        {/* Row 3: tag chips (only if there are tags) */}
         {allTags.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-            <Chip label="All Tags" selected={tagFilter === 'all'} onPress={() => setTagFilter('all')} color="#FF6B6B" />
+            <Chip
+              selected={tagFilter === 'all'}
+              onPress={() => setTagFilter('all')}
+              style={styles.filterChip}
+              selectedColor="#FF6B6B"
+              compact
+            >
+              All Tags
+            </Chip>
             {allTags.map(tag => (
-              <Chip key={tag} label={tag} selected={tagFilter === tag} onPress={() => setTagFilter(tag)} color={tagColor(tag)} />
+              <Chip
+                key={tag}
+                selected={tagFilter === tag}
+                onPress={() => setTagFilter(tag)}
+                style={styles.filterChip}
+                selectedColor={tagColor(tag)}
+                compact
+              >
+                {tag}
+              </Chip>
             ))}
           </ScrollView>
         )}
       </View>
 
       {/* ── Launch Me ── */}
-      <TouchableOpacity style={styles.launchButton} onPress={() => navigation.navigate('LaunchMe')}>
-        <MaterialIcons name="bolt" size={20} color="white" />
-        <Text style={styles.launchButtonText}>Launch Me</Text>
-        <Text style={styles.launchButtonSub}>Pick a window → start a task</Text>
-      </TouchableOpacity>
+      <Button
+        mode="contained"
+        icon="lightning-bolt"
+        onPress={() => navigation.navigate('LaunchMe')}
+        style={styles.launchButton}
+        contentStyle={styles.launchButtonContent}
+        buttonColor="#7c3aed"
+      >
+        Launch Me
+      </Button>
 
       {/* ── Add Task ── */}
-      <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddTask')}>
-        <MaterialIcons name="add" size={20} color="white" />
-        <Text style={styles.addButtonText}>Add Task</Text>
-      </TouchableOpacity>
+      <Button
+        mode="contained"
+        icon="plus"
+        onPress={() => navigation.navigate('AddTask')}
+        style={styles.addButton}
+        contentStyle={styles.addButtonContent}
+        buttonColor={COLORS.primary}
+      >
+        Add Task
+      </Button>
 
       {/* ── Task list ── */}
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 32 }} />
       ) : tasks.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>✅</Text>
+          <Icon source="check-circle-outline" size={64} color="#ccc" />
           <Text style={styles.emptyText}>No tasks here</Text>
           <Text style={styles.emptySubtext}>Try changing your filters or add a new task.</Text>
         </View>
@@ -342,8 +386,6 @@ export default function TaskListScreen({
           showsVerticalScrollIndicator={false}
         />
       )}
-
-      <SortModal visible={sortVisible} current={sortBy} onSelect={setSortBy} onClose={() => setSortVisible(false)} />
     </View>
   );
 }
@@ -355,159 +397,68 @@ const styles = StyleSheet.create({
   scoreCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     backgroundColor: 'white',
     padding: 14,
     borderRadius: 14,
-    borderWidth: 2,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  scoreEmoji: { fontSize: 28 },
-  scoreLabel: { fontSize: 12, color: '#888', fontWeight: '500' },
-  scoreValue: { fontSize: 22, fontWeight: '800' },
+  scoreLabel: { fontSize: 12, color: '#888', fontWeight: '500', marginBottom: 2 },
+  scoreValue: { fontSize: 22, fontWeight: '800', marginBottom: 4 },
+  progressBar: { borderRadius: 4, height: 6 },
 
   // Filters
   filterSection: { gap: 6, marginBottom: 12 },
   filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   chipScroll: { paddingVertical: 2, paddingRight: 8, gap: 6, flexDirection: 'row' },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    marginRight: 6,
-  },
-  chipText: { fontSize: 13, fontWeight: '600' },
-  sortBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    backgroundColor: 'white',
-    flexShrink: 0,
-  },
-  sortBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.primary, maxWidth: 70 },
+  filterChip: { backgroundColor: '#f0f0f0' },
+  sortBtn: { borderColor: COLORS.primary, flexShrink: 0 },
 
-  // Launch Me button
-  launchButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#7c3aed',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 10,
-  },
-  launchButtonText: { color: 'white', fontWeight: '700', fontSize: 16, flex: 1 },
-  launchButtonSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
+  // Launch Me
+  launchButton: { borderRadius: 12, marginBottom: 10 },
+  launchButtonContent: { paddingVertical: 4 },
 
   // Add button
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 13,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  addButtonText: { color: 'white', fontWeight: '700', fontSize: 16 },
+  addButton: { borderRadius: 12, marginBottom: 14 },
+  addButtonContent: { paddingVertical: 4 },
 
   // Task card
   task: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 14,
     marginBottom: 10,
     backgroundColor: 'white',
     borderRadius: 14,
     borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-    gap: 10,
+    overflow: 'hidden',
+  },
+  taskInner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 10,
+    gap: 4,
   },
   overdueTask: { backgroundColor: '#fff5f5' },
-  checkBtn: { paddingTop: 2 },
-  deleteBtn: { paddingTop: 2 },
-  taskTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginBottom: 6 },
+  checkBtn: { margin: 0 },
+  deleteBtn: { margin: 0 },
+  taskTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginBottom: 6, marginTop: 4 },
   completedTitle: { textDecorationLine: 'line-through', color: '#aaa' },
 
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
-  priorityBadge: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  priorityText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  categoryChip: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6C63FF',
-    backgroundColor: '#ede9ff',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  overdueBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#e53935',
-    backgroundColor: '#ffebee',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
-  tagBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  tagText: { color: 'white', fontSize: 11, fontWeight: '600' },
-  dueDate: { fontSize: 12, color: '#888', marginTop: 2 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6 },
+  priorityChip: { height: 24 },
+  priorityChipText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  categoryChip: { backgroundColor: '#ede9ff', height: 24 },
+  categoryChipText: { fontSize: 11, color: '#6C63FF', fontWeight: '600' },
+  overdueChip: { backgroundColor: '#ffebee', height: 24 },
+  overdueChipText: { fontSize: 11, color: '#e53935', fontWeight: '700' },
 
-  // Sort modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 36,
-  },
-  modalTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16, color: '#1a1a1a' },
-  modalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  modalRowSelected: { backgroundColor: '#f5f3ff', borderRadius: 10, paddingHorizontal: 10 },
-  modalRowText: { fontSize: 15, color: '#333' },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
+  tagChip: { height: 22 },
+  tagChipText: { color: 'white', fontSize: 11, fontWeight: '600' },
+
+  dueDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  dueDate: { fontSize: 12, color: '#888' },
 
   // Empty state
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 6 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80, gap: 8 },
+  emptyText: { fontSize: 18, fontWeight: '700', color: '#333' },
   emptySubtext: { fontSize: 14, color: '#888', textAlign: 'center' },
 });
