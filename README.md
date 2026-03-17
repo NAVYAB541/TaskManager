@@ -1,16 +1,16 @@
-# 📋 Task Manager — Cross-Platform Mobile App
+# Task Manager — Cross-Platform Mobile App
 
 A full-stack mobile task management app built with **React Native** and **TypeScript**, backed by a **Node.js/Express** REST API with a persistent **MongoDB Atlas** database. Deployed on **Render** and runs on both iOS and Android via Expo.
 
 ---
 
-## 📱 Screenshots
+## Screenshots
 
 > Add screenshots
 
 ---
 
-## ✨ Features
+## Features
 
 - Create, edit, complete, and delete tasks
 - Priority levels — High, Medium, Low (colour-coded)
@@ -24,7 +24,7 @@ A full-stack mobile task management app built with **React Native** and **TypeSc
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 ### Frontend
 | Technology | Purpose |
@@ -45,7 +45,7 @@ A full-stack mobile task management app built with **React Native** and **TypeSc
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 > The backend is already live — no local server setup needed. You can hit the API directly at `https://taskmanager-pn0w.onrender.com`.
 
@@ -66,7 +66,7 @@ Scan the QR code with Expo Go. The app points to the live Render backend out of 
 
 ---
 
-## 🌐 API Reference
+## API Reference
 
 Base URL: `https://taskmanager-pn0w.onrender.com`
 
@@ -112,7 +112,7 @@ curl -X POST https://taskmanager-pn0w.onrender.com/tasks \
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 task-manager/
@@ -139,7 +139,7 @@ task-manager/
 
 ---
 
-## 🔒 Security
+## Security
 
 - MongoDB credentials stored as environment variables only — never hardcoded
 - Atlas cluster secured with IP allowlist and scoped database user permissions
