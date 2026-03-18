@@ -8,6 +8,7 @@ import { COLORS } from '../constants/Theme';
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 type Props = NativeStackScreenProps<RootStackParamList, 'FocusMode'>;
 type FeelingRating = 'easy' | 'okay' | 'hard';
+type ModalStep = 'feeling' | 'completed' | null;
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -25,7 +26,8 @@ export default function FocusModeScreen({ navigation, route }: Props) {
   const { task } = route.params;
   const [seconds, setSeconds] = useState(0);
   const [running, setRunning] = useState(true);
-  const [showRating, setShowRating] = useState(false);
+  const [modalStep, setModalStep] = useState<ModalStep>(null);
+  const [feelingRating, setFeelingRating] = useState<FeelingRating | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -40,20 +42,32 @@ export default function FocusModeScreen({ navigation, route }: Props) {
 
   const handleFinish = () => {
     setRunning(false);
-    setShowRating(true);
+    setModalStep('feeling');
   };
 
-  const handleRating = async (rating: FeelingRating) => {
+  const handleFeelingPicked = (rating: FeelingRating) => {
+    setFeelingRating(rating);
+    setModalStep('completed');
+  };
+
+  const handleTaskCompletion = async (taskCompleted: boolean) => {
+    if (!feelingRating) return;
     setSubmitting(true);
-    setShowRating(false);
+    setModalStep(null);
     try {
       const actualMinutes = Math.max(1, Math.round(seconds / 60));
-      const res = await fetch(`${API_URL}/${task.id}/complete-focus`, {
+      await fetch(`${API_URL}/${task.id}/complete-focus`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actualMinutes, feelingRating: rating }),
+        body: JSON.stringify({ actualMinutes, feelingRating }),
       });
-      if (!res.ok) throw new Error('Failed');
+      if (taskCompleted) {
+        await fetch(`${API_URL}/${task.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed: true }),
+        });
+      }
       navigation.navigate('TaskList');
     } catch {
       Alert.alert('Error', 'Could not save session');
@@ -122,8 +136,8 @@ export default function FocusModeScreen({ navigation, route }: Props) {
         </Button>
       </View>
 
-      {/* Feeling rating modal */}
-      <Modal visible={showRating} transparent animationType="slide">
+      {/* Step 1 — Feeling rating */}
+      <Modal visible={modalStep === 'feeling'} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Surface style={styles.modalCard} elevation={4}>
             <Text style={styles.modalTitle}>How'd that feel?</Text>
@@ -131,13 +145,11 @@ export default function FocusModeScreen({ navigation, route }: Props) {
               You focused for {formatTime(seconds)}
               {task.estimateMinutes ? ` · estimated ${task.estimateMinutes} min` : ''}
             </Text>
-
             <View style={styles.ratingRow}>
               {RATINGS.map(r => (
                 <TouchableRipple
                   key={r.value}
-                  onPress={() => handleRating(r.value)}
-                  disabled={submitting}
+                  onPress={() => handleFeelingPicked(r.value)}
                   style={styles.ratingBtn}
                   borderless
                 >
@@ -147,6 +159,39 @@ export default function FocusModeScreen({ navigation, route }: Props) {
                   </View>
                 </TouchableRipple>
               ))}
+            </View>
+          </Surface>
+        </View>
+      </Modal>
+
+      {/* Step 2 — Task completion */}
+      <Modal visible={modalStep === 'completed'} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <Surface style={styles.modalCard} elevation={4}>
+            <Icon source="checkbox-marked-circle-outline" size={48} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 12 }} />
+            <Text style={styles.modalTitle}>Did you finish the task?</Text>
+            <Text style={styles.modalSub}>"{task.title}"</Text>
+            <View style={styles.completionRow}>
+              <Button
+                mode="contained"
+                icon="check"
+                onPress={() => handleTaskCompletion(true)}
+                disabled={submitting}
+                style={styles.completionBtn}
+                buttonColor={COLORS.secondary}
+              >
+                Yes, done!
+              </Button>
+              <Button
+                mode="outlined"
+                icon="clock-outline"
+                onPress={() => handleTaskCompletion(false)}
+                disabled={submitting}
+                style={styles.completionBtn}
+                textColor={COLORS.primary}
+              >
+                Not yet
+              </Button>
             </View>
           </Surface>
         </View>
@@ -238,4 +283,7 @@ const styles = StyleSheet.create({
   ratingBtn: { borderRadius: 16, overflow: 'hidden' },
   ratingBtnInner: { alignItems: 'center', padding: 16, gap: 8 },
   ratingLabel: { fontSize: 14, fontWeight: '700' },
+
+  completionRow: { flexDirection: 'column', gap: 10, marginTop: 8 },
+  completionBtn: { borderRadius: 10 },
 });
