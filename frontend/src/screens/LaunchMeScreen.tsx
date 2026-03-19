@@ -121,22 +121,11 @@ export default function LaunchMeScreen({ navigation }: Props) {
             <View style={{ flex: 1 }}>
               <Text style={styles.taskTitle}>{item.title}</Text>
 
-              {item.nextAction ? (
+              {!!item.nextAction && (
                 <View style={styles.nextActionRow}>
                   <Icon source="arrow-right" size={14} color="#888" />
                   <Text style={styles.nextActionText}>{item.nextAction}</Text>
                 </View>
-              ) : (
-                <Button
-                  mode="text"
-                  compact
-                  icon="pencil-plus-outline"
-                  textColor="#f59e0b"
-                  style={styles.setNextActionBtn}
-                  onPress={() => navigation.navigate('TaskDetails', { task: item })}
-                >
-                  Set a next action first
-                </Button>
               )}
 
               <View style={styles.metaRow}>
@@ -230,7 +219,6 @@ const styles = StyleSheet.create({
 
   nextActionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginBottom: 8 },
   nextActionText: { flex: 1, fontSize: 13, color: '#666', lineHeight: 18 },
-  setNextActionBtn: { alignSelf: 'flex-start', marginBottom: 6, marginLeft: -8 },
 
   metaRow: { flexDirection: 'row', gap: 6 },
   timeBadge: { backgroundColor: COLORS.primary + '15', height: 26 },

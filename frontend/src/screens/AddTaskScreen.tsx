@@ -42,6 +42,7 @@ export default function AddTaskScreen({ navigation }: Props) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tagsInput, setTagsInput]       = useState('');
   const [category, setCategory]         = useState<string>('General');
+  const [estimateHours, setEstimateHours]     = useState('0');
   const [estimateMinutes, setEstimateMinutes] = useState('30');
   const [energy, setEnergy]             = useState<'high' | 'medium' | 'low' | null>(null);
   const [saving, setSaving]             = useState(false);
@@ -89,7 +90,7 @@ export default function AddTaskScreen({ navigation }: Props) {
           completed: false,
           category: category.trim() || 'General',
           tags: parsedTags,
-          estimateMinutes: parseInt(estimateMinutes) || 30,
+          estimateMinutes: (parseInt(estimateHours) || 0) * 60 + (parseInt(estimateMinutes) || 0) || 30,
           energy: energy ?? inferredEnergy,
         }),
       });
@@ -134,18 +135,34 @@ export default function AddTaskScreen({ navigation }: Props) {
         mode="outlined" multiline numberOfLines={3} style={styles.input}
         outlineColor="#ddd" activeOutlineColor={COLORS.primary} />
 
-      {/* Time estimate — free input */}
-      <TextInput
-        label="Time estimate (minutes)"
-        value={estimateMinutes}
-        onChangeText={setEstimateMinutes}
-        mode="outlined"
-        keyboardType="number-pad"
-        style={styles.input}
-        outlineColor="#ddd"
-        activeOutlineColor={COLORS.primary}
-        left={<TextInput.Icon icon="timer-outline" />}
-      />
+      {/* Time estimate — hours + minutes */}
+      <Text style={styles.label}>
+        Time Estimate
+        <Text style={styles.labelHint}>  · how long will this take?</Text>
+      </Text>
+      <View style={styles.estimateRow}>
+        <TextInput
+          label="hr"
+          value={estimateHours}
+          onChangeText={setEstimateHours}
+          mode="outlined"
+          keyboardType="number-pad"
+          style={styles.estimateInput}
+          outlineColor="#ddd"
+          activeOutlineColor={COLORS.primary}
+          left={<TextInput.Icon icon="timer-outline" />}
+        />
+        <TextInput
+          label="min"
+          value={estimateMinutes}
+          onChangeText={setEstimateMinutes}
+          mode="outlined"
+          keyboardType="number-pad"
+          style={styles.estimateInput}
+          outlineColor="#ddd"
+          activeOutlineColor={COLORS.primary}
+        />
+      </View>
 
       {/* Energy */}
       <Text style={styles.label}>
@@ -301,6 +318,9 @@ const styles = StyleSheet.create({
   subtaskChipTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
   subtaskChipDesc: { fontSize: 12, color: '#888', marginTop: 1 },
   subtaskChipEst: { fontSize: 11, color: COLORS.primary, marginTop: 2 },
+
+  estimateRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  estimateInput: { flex: 1, backgroundColor: 'white' },
 
   subtaskForm: { backgroundColor: 'white', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#eee' },
   subInput: { backgroundColor: 'white', marginBottom: 8 },

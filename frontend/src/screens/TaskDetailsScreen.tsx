@@ -25,7 +25,9 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
   const [completed, setCompleted]       = useState(task.completed);
   const [tagsInput, setTagsInput]       = useState(task.tags?.join(', ') ?? '');
   const [category, setCategory]         = useState(task.category || 'General');
-  const [estimateMinutes, setEstimateMinutes] = useState(String(task.estimateMinutes ?? 30));
+  const totalMins = task.estimateMinutes ?? 30;
+  const [estimateHours,   setEstimateHours]   = useState(String(Math.floor(totalMins / 60)));
+  const [estimateMinutes, setEstimateMinutes] = useState(String(totalMins % 60));
   const [energy, setEnergy]             = useState<'high' | 'medium' | 'low' | null>(task.energy ?? null);
   const [saving, setSaving]             = useState(false);
 
@@ -108,7 +110,7 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
           completed,
           category: category.trim() || 'General',
           tags: parsedTags,
-          estimateMinutes: parseInt(estimateMinutes) || 30,
+          estimateMinutes: (parseInt(estimateHours) || 0) * 60 + (parseInt(estimateMinutes) || 0) || 30,
           energy,
         }),
       });
@@ -148,11 +150,31 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
         </Surface>
       )}
 
-      {/* Time estimate */}
-      <TextInput label="Time estimate (minutes)" value={estimateMinutes}
-        onChangeText={setEstimateMinutes} mode="outlined" keyboardType="number-pad"
-        style={styles.input} outlineColor="#ddd" activeOutlineColor={COLORS.primary}
-        left={<TextInput.Icon icon="timer-outline" />} />
+      {/* Time estimate — hours + minutes */}
+      <Text style={styles.label}>Time Estimate</Text>
+      <View style={styles.estimateRow}>
+        <TextInput
+          label="hr"
+          value={estimateHours}
+          onChangeText={setEstimateHours}
+          mode="outlined"
+          keyboardType="number-pad"
+          style={styles.estimateInput}
+          outlineColor="#ddd"
+          activeOutlineColor={COLORS.primary}
+          left={<TextInput.Icon icon="timer-outline" />}
+        />
+        <TextInput
+          label="min"
+          value={estimateMinutes}
+          onChangeText={setEstimateMinutes}
+          mode="outlined"
+          keyboardType="number-pad"
+          style={styles.estimateInput}
+          outlineColor="#ddd"
+          activeOutlineColor={COLORS.primary}
+        />
+      </View>
 
       {/* Energy */}
       <Text style={styles.label}>Energy Required</Text>
@@ -320,6 +342,9 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#ddd', marginBottom: 20, marginTop: 8,
   },
   switchLabel: { fontSize: 15, fontWeight: '600', color: '#333' },
+  estimateRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  estimateInput: { flex: 1, backgroundColor: 'white' },
+
   saveButton: { borderRadius: 10, marginTop: 4 },
   saveButtonContent: { paddingVertical: 6 },
 });
