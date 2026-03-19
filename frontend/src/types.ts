@@ -11,6 +11,7 @@ export type Task = {
   energy?: 'high' | 'medium' | 'low' | null;
   nextAction?: string;
   parentTaskId?: string | null;
+  createdAt?: string;
 };
 
 export type AISubtask = {

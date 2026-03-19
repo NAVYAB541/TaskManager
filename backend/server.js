@@ -1,11 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' })); // allow base64 file uploads
 
 // ─── MongoDB connection ───────────────────────────────────────────────────────
 mongoose
@@ -26,6 +27,7 @@ const taskSchema = new mongoose.Schema(
     estimateMinutes: { type: Number, default: 30 },
     energy:          { type: String, default: null },   // 'high' | 'medium' | 'low' | null
     nextAction:      { type: String, default: '' },
+    parentTaskId:    { type: String, default: null },   // set on AI-generated subtasks
   },
   {
     timestamps: true,
@@ -59,11 +61,12 @@ const FocusSession = mongoose.model('FocusSession', focusSessionSchema);
 // ─── GET all tasks ────────────────────────────────────────────────────────────
 app.get('/tasks', async (req, res) => {
   try {
-    const { completed, category, tag } = req.query;
+    const { completed, category, tag, parentTaskId } = req.query;
     const filter = {};
-    if (completed !== undefined) filter.completed = completed === 'true';
-    if (category)                filter.category  = category;
-    if (tag)                     filter.tags      = tag;
+    if (completed    !== undefined) filter.completed    = completed === 'true';
+    if (category)                   filter.category     = category;
+    if (tag)                        filter.tags         = tag;
+    if (parentTaskId !== undefined) filter.parentTaskId = parentTaskId === 'null' ? null : parentTaskId;
     const tasks = await Task.find(filter).sort({ createdAt: -1 });
     res.json(tasks);
   } catch (err) {
@@ -160,6 +163,100 @@ app.post('/tasks/:id/complete-focus', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to log focus session' });
+  }
+});
+
+// ─── POST AI plan task ────────────────────────────────────────────────────────
+app.post('/ai/plan-task', async (req, res) => {
+  try {
+    const { title, description, category, totalHours, files } = req.body;
+    if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    // Build multimodal parts: text prompt + any uploaded files
+    const parts = [];
+
+    if (files?.length) {
+      for (const f of files) {
+        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+      }
+    }
+
+    parts.push({
+      text: `You are a student productivity coach. Break this task into manageable subtasks.
+
+Task: "${title.trim()}"
+${description ? `Details: ${description}` : ''}
+${category ? `Category: ${category}` : ''}
+${totalHours ? `Time available: ${totalHours} hours` : ''}
+${files?.length ? `(See attached file(s) for more context)` : ''}
+
+Respond ONLY with valid JSON (no markdown, no extra text):
+{
+  "feasibility": {
+    "ok": true,
+    "message": "This looks achievable in the time given."
+  },
+  "subtasks": [
+    {
+      "title": "Short subtask title",
+      "estimateMinutes": 20,
+      "nextAction": "The very first small thing to do — make it feel easy to start",
+      "energy": "medium"
+    }
+  ]
+}
+
+Rules:
+- If totalHours is given and seems unrealistic for the task, set feasibility.ok to false and explain gently.
+- Create 3–5 subtasks. Each must feel non-overwhelming.
+- nextAction should be a single specific micro-step (like "Open a blank doc and jot 3 bullet points").
+- estimateMinutes per subtask should be 10–60 min.
+- energy must be "high", "medium", or "low".
+- Total estimated time across subtasks should roughly match totalHours if given.`,
+    });
+
+    const result = await model.generateContent(parts);
+    const raw = result.response.text().trim();
+
+    // Strip markdown code fences if present
+    const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    res.json(parsed);
+  } catch (err) {
+    console.error('AI plan error:', err.message);
+    res.status(500).json({ error: 'AI planning failed' });
+  }
+});
+
+// ─── POST bulk create tasks (parent + subtasks in one shot) ───────────────────
+app.post('/tasks/bulk', async (req, res) => {
+  try {
+    const { tasks } = req.body;
+    if (!Array.isArray(tasks) || !tasks.length) {
+      return res.status(400).json({ error: 'tasks array is required' });
+    }
+    const created = await Task.insertMany(
+      tasks.map(t => ({
+        title:           t.title?.trim(),
+        description:     t.description ?? '',
+        dueDate:         t.dueDate ?? null,
+        priority:        t.priority ?? 'medium',
+        completed:       false,
+        category:        t.category?.trim() || 'General',
+        tags:            Array.isArray(t.tags) ? t.tags.filter(Boolean) : [],
+        estimateMinutes: t.estimateMinutes ?? 30,
+        energy:          t.energy ?? null,
+        nextAction:      t.nextAction ?? '',
+        parentTaskId:    t.parentTaskId ?? null,
+      }))
+    );
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(500).json({ error: 'Bulk create failed' });
   }
 });
 

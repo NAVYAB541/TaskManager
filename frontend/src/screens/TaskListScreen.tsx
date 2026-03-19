@@ -77,6 +77,7 @@ export default function TaskListScreen({
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate' | 'title'>('dueDate');
   const [allTags, setAllTags] = useState<string[]>([]);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [subtasksByParent, setSubtasksByParent] = useState<Record<string, Task[]>>({});
 
   const computeProductivityScore = (list: Task[]) => {
     if (!list.length) return 0;
@@ -91,10 +92,28 @@ export default function TaskListScreen({
     try {
       setLoading(true);
       const res = await fetch(API_URL);
-      let data: Task[] = await res.json();
+      const all: Task[] = await res.json();
+
+      // Collect tags from top-level tasks only
       const tagsSet = new Set<string>();
-      data.forEach(t => t.tags?.forEach(tag => tagsSet.add(tag)));
+      all.filter(t => !t.parentTaskId).forEach(t => t.tags?.forEach(tag => tagsSet.add(tag)));
       setAllTags(Array.from(tagsSet).sort());
+
+      // Separate subtasks from top-level tasks
+      const subtaskMap: Record<string, Task[]> = {};
+      all.forEach(t => {
+        if (t.parentTaskId) {
+          if (!subtaskMap[t.parentTaskId]) subtaskMap[t.parentTaskId] = [];
+          subtaskMap[t.parentTaskId].push(t);
+        }
+      });
+      // Sort subtasks by creation order
+      Object.values(subtaskMap).forEach(subs =>
+        subs.sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime())
+      );
+
+      // Only top-level tasks go through filters
+      let data = all.filter(t => !t.parentTaskId);
       if (filter === 'completed') data = data.filter(t => t.completed);
       if (filter === 'pending')   data = data.filter(t => !t.completed);
       if (categoryFilter !== 'all') data = data.filter(t => t.category === categoryFilter);
@@ -107,7 +126,9 @@ export default function TaskListScreen({
         if (sortBy === 'dueDate') return new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
         return a.title.localeCompare(b.title);
       });
+
       setTasks(data);
+      setSubtasksByParent(subtaskMap);
     } catch {
       Alert.alert('Error', 'Could not load tasks');
     } finally {
@@ -145,115 +166,130 @@ export default function TaskListScreen({
   };
 
   const renderTask = ({ item }: { item: Task }) => {
+    const subtasks = subtasksByParent[item.id] ?? [];
     const isOverdue = item.dueDate && !item.completed && dayjs(item.dueDate).isBefore(dayjs());
     const pColor = priorityColor(item.priority);
+    const nextIncomplete = subtasks.find(s => !s.completed);
+    const doneCount = subtasks.filter(s => s.completed).length;
+    const hasSubtasks = subtasks.length > 0;
 
     return (
-      <Surface
-        style={[styles.task, { borderLeftColor: pColor }, isOverdue && styles.overdueTask]}
-        elevation={1}
-      >
-        <TouchableOpacity
-          style={styles.taskInner}
-          onPress={() => navigation.navigate('TaskDetails', { task: item })}
-          activeOpacity={0.7}
+      <View key={item.id}>
+        {/* ── Parent / standalone task card ── */}
+        <Surface
+          style={[styles.task, { borderLeftColor: pColor }, isOverdue && styles.overdueTask]}
+          elevation={1}
         >
-          <IconButton
-            icon={item.completed ? 'check-circle' : 'circle-outline'}
-            iconColor={item.completed ? '#4CAF50' : pColor}
-            size={24}
-            onPress={() => toggleTask(item)}
-            style={styles.checkBtn}
-          />
+          <TouchableOpacity
+            style={styles.taskInner}
+            onPress={() => navigation.navigate('TaskDetails', { task: item })}
+            activeOpacity={0.7}
+          >
+            <IconButton
+              icon={item.completed ? 'check-circle' : 'circle-outline'}
+              iconColor={item.completed ? '#4CAF50' : pColor}
+              size={24}
+              onPress={() => toggleTask(item)}
+              style={styles.checkBtn}
+            />
 
-          <View style={{ flex: 1 }}>
-            <Text
-              style={[styles.taskTitle, item.completed && styles.completedTitle]}
-              numberOfLines={2}
-            >
-              {item.title}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.taskTitle, item.completed && styles.completedTitle]} numberOfLines={2}>
+                {item.title}
+              </Text>
 
-            <View style={styles.metaRow}>
-              <Chip
-                compact
-                mode="flat"
-                style={[styles.priorityChip, { backgroundColor: pColor + '22' }]}
-                textStyle={[styles.priorityChipText, { color: pColor }]}
-              >
-                {item.priority?.toUpperCase()}
-              </Chip>
-
-              {item.category && (
-                <Chip
-                  compact
-                  mode="flat"
-                  style={styles.categoryChip}
-                  textStyle={styles.categoryChipText}
-                >
-                  {item.category}
+              <View style={styles.metaRow}>
+                <Chip compact mode="flat"
+                  style={[styles.priorityChip, { backgroundColor: pColor + '22' }]}
+                  textStyle={[styles.priorityChipText, { color: pColor }]}>
+                  {item.priority?.toUpperCase()}
                 </Chip>
+                {item.category && (
+                  <Chip compact mode="flat" style={styles.categoryChip} textStyle={styles.categoryChipText}>
+                    {item.category}
+                  </Chip>
+                )}
+                {isOverdue && (
+                  <Chip compact mode="flat" icon="alert" style={styles.overdueChip} textStyle={styles.overdueChipText}>
+                    Overdue
+                  </Chip>
+                )}
+                {hasSubtasks && (
+                  <Chip compact mode="flat" style={styles.subtaskCountChip} textStyle={styles.subtaskCountText}>
+                    {doneCount}/{subtasks.length} done
+                  </Chip>
+                )}
+              </View>
+
+              {(item.tags || []).length > 0 && (
+                <View style={styles.tagRow}>
+                  {(item.tags || []).map(tag => (
+                    <Chip key={tag} compact mode="flat"
+                      style={[styles.tagChip, { backgroundColor: tagColor(tag) }]}
+                      textStyle={styles.tagChipText}>{tag}</Chip>
+                  ))}
+                </View>
               )}
 
-              {isOverdue && (
-                <Chip
-                  compact
-                  mode="flat"
-                  icon="alert"
-                  style={styles.overdueChip}
-                  textStyle={styles.overdueChipText}
-                >
-                  Overdue
-                </Chip>
+              {/* Next step: derived from first incomplete subtask */}
+              {!item.completed && nextIncomplete && (
+                <View style={styles.nextActionRow}>
+                  <Icon source="arrow-right-circle-outline" size={13} color={COLORS.primary} />
+                  <Text style={styles.nextActionText} numberOfLines={1}>{nextIncomplete.title}</Text>
+                </View>
+              )}
+
+              {item.dueDate && (
+                <View style={styles.dueDateRow}>
+                  <Icon source="calendar" size={13} color={isOverdue ? COLORS.danger : '#888'} />
+                  <Text style={[styles.dueDate, isOverdue && { color: COLORS.danger }]}>
+                    {dayjs(item.dueDate).format('DD MMM YYYY')}
+                  </Text>
+                </View>
               )}
             </View>
 
-            {(item.tags || []).length > 0 && (
-              <View style={styles.tagRow}>
-                {(item.tags || []).map(tag => (
-                  <Chip
-                    key={tag}
-                    compact
-                    mode="flat"
-                    style={[styles.tagChip, { backgroundColor: tagColor(tag) }]}
-                    textStyle={styles.tagChipText}
-                  >
-                    {tag}
-                  </Chip>
-                ))}
-              </View>
-            )}
+            <IconButton icon="delete-outline" iconColor="#ccc" size={20}
+              onPress={() => deleteTask(item)} style={styles.deleteBtn} />
+          </TouchableOpacity>
+        </Surface>
 
-            {!!item.nextAction && !item.completed && (
-              <View style={styles.nextActionRow}>
-                <Icon source="arrow-right-circle-outline" size={13} color={COLORS.primary} />
-                <Text style={styles.nextActionText} numberOfLines={1}>{item.nextAction}</Text>
-              </View>
-            )}
-
-            {item.dueDate && (
-              <View style={styles.dueDateRow}>
-                <Icon
-                  source="calendar"
-                  size={13}
-                  color={isOverdue ? COLORS.danger : '#888'}
-                />
-                <Text style={[styles.dueDate, isOverdue && { color: COLORS.danger }]}>
-                  {dayjs(item.dueDate).format('DD MMM YYYY')}
-                </Text>
-              </View>
-            )}
+        {/* ── Subtasks grouped below parent ── */}
+        {hasSubtasks && (
+          <View style={styles.subtaskGroup}>
+            {subtasks.map((sub, idx) => (
+              <Surface key={sub.id} style={[styles.subtaskItem, sub.completed && styles.subtaskItemDone]} elevation={0}>
+                <View style={styles.subtaskConnector}>
+                  <View style={[styles.subtaskLine, idx === subtasks.length - 1 && { opacity: 0 }]} />
+                  <View style={styles.subtaskDot} />
+                </View>
+                <TouchableOpacity
+                  style={styles.subtaskContent}
+                  onPress={() => navigation.navigate('TaskDetails', { task: sub })}
+                  activeOpacity={0.7}
+                >
+                  <IconButton
+                    icon={sub.completed ? 'check-circle' : 'circle-outline'}
+                    iconColor={sub.completed ? COLORS.secondary : '#bbb'}
+                    size={20}
+                    onPress={() => toggleTask(sub)}
+                    style={{ margin: 0 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.subtaskItemTitle, sub.completed && styles.subtaskItemDoneText]} numberOfLines={1}>
+                      {sub.title}
+                    </Text>
+                    {!!sub.description && (
+                      <Text style={styles.subtaskItemDesc} numberOfLines={1}>{sub.description}</Text>
+                    )}
+                    <Text style={styles.subtaskItemEst}>{sub.estimateMinutes ?? 30} min</Text>
+                  </View>
+                </TouchableOpacity>
+              </Surface>
+            ))}
           </View>
-
-          <IconButton
-            icon="delete-outline"
-            iconColor="#ccc"
-            size={20}
-            onPress={() => deleteTask(item)}
-            style={styles.deleteBtn}
-          />
-        </TouchableOpacity>
-      </Surface>
+        )}
+      </View>
     );
   };
 
@@ -460,6 +496,25 @@ const styles = StyleSheet.create({
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
   tagChip: {},
   tagChipText: { color: 'white', fontSize: 11, fontWeight: '600' },
+
+  subtaskCountChip: { backgroundColor: '#f0f0f0' },
+  subtaskCountText: { fontSize: 11, color: '#666', fontWeight: '600' },
+
+  subtaskGroup: { marginLeft: 20, marginTop: -4, marginBottom: 6 },
+  subtaskItem: {
+    flexDirection: 'row', alignItems: 'stretch',
+    backgroundColor: 'white', borderRadius: 10, marginBottom: 4,
+    borderWidth: 1, borderColor: '#f0f0f0', overflow: 'hidden',
+  },
+  subtaskItemDone: { opacity: 0.55 },
+  subtaskConnector: { width: 16, alignItems: 'center' },
+  subtaskLine: { flex: 1, width: 1.5, backgroundColor: '#e0e0e0' },
+  subtaskDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ddd', marginVertical: 2 },
+  subtaskContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingRight: 8 },
+  subtaskItemTitle: { fontSize: 13, fontWeight: '600', color: '#333' },
+  subtaskItemDoneText: { textDecorationLine: 'line-through', color: '#bbb' },
+  subtaskItemDesc: { fontSize: 11, color: '#999', marginTop: 1 },
+  subtaskItemEst: { fontSize: 11, color: COLORS.primary, marginTop: 1 },
 
   nextActionRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
   nextActionText: { fontSize: 12, color: COLORS.primary, flex: 1, fontStyle: 'italic' },
