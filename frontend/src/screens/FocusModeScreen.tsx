@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, Modal } from 'react-native';
-import { Button, Surface, Icon, TouchableRipple } from 'react-native-paper';
+import { Button, Surface, Icon, TouchableRipple, TextInput } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { COLORS } from '../constants/Theme';
@@ -8,7 +8,7 @@ import { COLORS } from '../constants/Theme';
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 type Props = NativeStackScreenProps<RootStackParamList, 'FocusMode'>;
 type FeelingRating = 'easy' | 'okay' | 'hard';
-type ModalStep = 'feeling' | 'completed' | null;
+type ModalStep = 'feeling' | 'completed' | 'next-action' | null;
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -28,6 +28,7 @@ export default function FocusModeScreen({ navigation, route }: Props) {
   const [running, setRunning] = useState(true);
   const [modalStep, setModalStep] = useState<ModalStep>(null);
   const [feelingRating, setFeelingRating] = useState<FeelingRating | null>(null);
+  const [nextActionDraft, setNextActionDraft] = useState(task.nextAction ?? '');
   const [submitting, setSubmitting] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -50,7 +51,16 @@ export default function FocusModeScreen({ navigation, route }: Props) {
     setModalStep('completed');
   };
 
-  const handleTaskCompletion = async (taskCompleted: boolean) => {
+  const handleTaskCompletion = (taskCompleted: boolean) => {
+    if (taskCompleted) {
+      saveAndExit(true);
+    } else {
+      // Not done yet — ask them to update the next action before leaving
+      setModalStep('next-action');
+    }
+  };
+
+  const saveAndExit = async (taskCompleted: boolean) => {
     if (!feelingRating) return;
     setSubmitting(true);
     setModalStep(null);
@@ -61,11 +71,16 @@ export default function FocusModeScreen({ navigation, route }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ actualMinutes, feelingRating }),
       });
-      if (taskCompleted) {
+      const updates: Record<string, unknown> = {};
+      if (taskCompleted) updates.completed = true;
+      if (nextActionDraft.trim() !== (task.nextAction ?? '')) {
+        updates.nextAction = nextActionDraft.trim();
+      }
+      if (Object.keys(updates).length) {
         await fetch(`${API_URL}/${task.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ completed: true }),
+          body: JSON.stringify(updates),
         });
       }
       navigation.navigate('TaskList');
@@ -160,6 +175,45 @@ export default function FocusModeScreen({ navigation, route }: Props) {
                 </TouchableRipple>
               ))}
             </View>
+          </Surface>
+        </View>
+      </Modal>
+
+      {/* Step 3 — Update next action (only when "Not yet") */}
+      <Modal visible={modalStep === 'next-action'} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <Surface style={styles.modalCard} elevation={4}>
+            <Icon source="arrow-right-circle-outline" size={44} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 12 }} />
+            <Text style={styles.modalTitle}>Where did you leave off?</Text>
+            <Text style={styles.modalSub}>Set your next action so you know exactly where to pick up.</Text>
+            <TextInput
+              value={nextActionDraft}
+              onChangeText={setNextActionDraft}
+              mode="outlined"
+              placeholder="e.g. Write the conclusion paragraph"
+              outlineColor="#ddd"
+              activeOutlineColor={COLORS.primary}
+              style={styles.nextActionInput}
+              multiline
+            />
+            <Button
+              mode="contained"
+              onPress={() => saveAndExit(false)}
+              disabled={submitting}
+              buttonColor={COLORS.primary}
+              style={styles.completionBtn}
+            >
+              Save & exit
+            </Button>
+            <Button
+              mode="text"
+              onPress={() => saveAndExit(false)}
+              disabled={submitting}
+              textColor="#aaa"
+              compact
+            >
+              Skip
+            </Button>
           </Surface>
         </View>
       </Modal>
@@ -285,5 +339,6 @@ const styles = StyleSheet.create({
   ratingLabel: { fontSize: 14, fontWeight: '700' },
 
   completionRow: { flexDirection: 'column', gap: 10, marginTop: 8 },
-  completionBtn: { borderRadius: 10 },
+  completionBtn: { borderRadius: 10, marginBottom: 8 },
+  nextActionInput: { backgroundColor: 'white', marginBottom: 16 },
 });

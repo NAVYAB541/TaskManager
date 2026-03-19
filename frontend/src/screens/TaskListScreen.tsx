@@ -224,6 +224,13 @@ export default function TaskListScreen({
               </View>
             )}
 
+            {!!item.nextAction && !item.completed && (
+              <View style={styles.nextActionRow}>
+                <Icon source="arrow-right-circle-outline" size={13} color={COLORS.primary} />
+                <Text style={styles.nextActionText} numberOfLines={1}>{item.nextAction}</Text>
+              </View>
+            )}
+
             {item.dueDate && (
               <View style={styles.dueDateRow}>
                 <Icon
@@ -453,6 +460,9 @@ const styles = StyleSheet.create({
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
   tagChip: {},
   tagChipText: { color: 'white', fontSize: 11, fontWeight: '600' },
+
+  nextActionRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+  nextActionText: { fontSize: 12, color: COLORS.primary, flex: 1, fontStyle: 'italic' },
 
   dueDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   dueDate: { fontSize: 12, color: '#888' },
