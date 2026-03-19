@@ -78,6 +78,15 @@ export default function TaskListScreen({
   const [allTags, setAllTags] = useState<string[]>([]);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [subtasksByParent, setSubtasksByParent] = useState<Record<string, Task[]>>({});
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedTasks(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const computeProductivityScore = (list: Task[]) => {
     if (!list.length) return 0;
@@ -172,6 +181,7 @@ export default function TaskListScreen({
     const nextIncomplete = subtasks.find(s => !s.completed);
     const doneCount = subtasks.filter(s => s.completed).length;
     const hasSubtasks = subtasks.length > 0;
+    const isExpanded = expandedTasks.has(item.id);
 
     return (
       <View key={item.id}>
@@ -252,29 +262,42 @@ export default function TaskListScreen({
             <IconButton icon="delete-outline" iconColor="#ccc" size={20}
               onPress={() => deleteTask(item)} style={styles.deleteBtn} />
           </TouchableOpacity>
+
+          {/* ── Accordion toggle row ── */}
+          {hasSubtasks && (
+            <TouchableOpacity style={styles.accordionRow} onPress={() => toggleExpanded(item.id)} activeOpacity={0.6}>
+              <View style={styles.accordionProgress}>
+                <View style={[styles.accordionProgressFill, { width: `${Math.round((doneCount / subtasks.length) * 100)}%` as any }]} />
+              </View>
+              <Text style={styles.accordionLabel}>
+                {doneCount}/{subtasks.length} subtasks
+              </Text>
+              <Icon
+                source={isExpanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color="#aaa"
+              />
+            </TouchableOpacity>
+          )}
         </Surface>
 
-        {/* ── Subtasks grouped below parent ── */}
-        {hasSubtasks && (
+        {/* ── Collapsible subtask list ── */}
+        {hasSubtasks && isExpanded && (
           <View style={styles.subtaskGroup}>
-            {subtasks.map((sub, idx) => (
+            {subtasks.map(sub => (
               <Surface key={sub.id} style={[styles.subtaskItem, sub.completed && styles.subtaskItemDone]} elevation={0}>
-                <View style={styles.subtaskConnector}>
-                  <View style={[styles.subtaskLine, idx === subtasks.length - 1 && { opacity: 0 }]} />
-                  <View style={styles.subtaskDot} />
-                </View>
+                <IconButton
+                  icon={sub.completed ? 'check-circle' : 'circle-outline'}
+                  iconColor={sub.completed ? COLORS.secondary : '#bbb'}
+                  size={20}
+                  onPress={() => toggleTask(sub)}
+                  style={{ margin: 0 }}
+                />
                 <TouchableOpacity
                   style={styles.subtaskContent}
                   onPress={() => navigation.navigate('TaskDetails', { task: sub })}
                   activeOpacity={0.7}
                 >
-                  <IconButton
-                    icon={sub.completed ? 'check-circle' : 'circle-outline'}
-                    iconColor={sub.completed ? COLORS.secondary : '#bbb'}
-                    size={20}
-                    onPress={() => toggleTask(sub)}
-                    style={{ margin: 0 }}
-                  />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.subtaskItemTitle, sub.completed && styles.subtaskItemDoneText]} numberOfLines={1}>
                       {sub.title}
@@ -284,6 +307,7 @@ export default function TaskListScreen({
                     )}
                     <Text style={styles.subtaskItemEst}>{sub.estimateMinutes ?? 30} min</Text>
                   </View>
+                  <Icon source="chevron-right" size={16} color="#ddd" />
                 </TouchableOpacity>
               </Surface>
             ))}
@@ -500,17 +524,25 @@ const styles = StyleSheet.create({
   subtaskCountChip: { backgroundColor: '#f0f0f0' },
   subtaskCountText: { fontSize: 11, color: '#666', fontWeight: '600' },
 
-  subtaskGroup: { marginLeft: 20, marginTop: -4, marginBottom: 6 },
-  subtaskItem: {
-    flexDirection: 'row', alignItems: 'stretch',
-    backgroundColor: 'white', borderRadius: 10, marginBottom: 4,
-    borderWidth: 1, borderColor: '#f0f0f0', overflow: 'hidden',
+  accordionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: '#f0f0f0',
   },
-  subtaskItemDone: { opacity: 0.55 },
-  subtaskConnector: { width: 16, alignItems: 'center' },
-  subtaskLine: { flex: 1, width: 1.5, backgroundColor: '#e0e0e0' },
-  subtaskDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ddd', marginVertical: 2 },
-  subtaskContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingRight: 8 },
+  accordionProgress: {
+    flex: 1, height: 4, borderRadius: 2, backgroundColor: '#f0f0f0', overflow: 'hidden',
+  },
+  accordionProgressFill: { height: '100%', backgroundColor: COLORS.secondary, borderRadius: 2 },
+  accordionLabel: { fontSize: 12, color: '#aaa', fontWeight: '600' },
+
+  subtaskGroup: { marginLeft: 16, marginTop: 2, marginBottom: 8 },
+  subtaskItem: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'white', borderRadius: 10, marginBottom: 4,
+    borderWidth: 1, borderColor: '#f0f0f0', paddingRight: 10,
+  },
+  subtaskItemDone: { opacity: 0.5 },
+  subtaskContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   subtaskItemTitle: { fontSize: 13, fontWeight: '600', color: '#333' },
   subtaskItemDoneText: { textDecorationLine: 'line-through', color: '#bbb' },
   subtaskItemDesc: { fontSize: 11, color: '#999', marginTop: 1 },
