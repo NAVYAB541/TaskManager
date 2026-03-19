@@ -80,7 +80,7 @@ export default function AIPlannerScreen({ navigation, route }: Props) {
     if (!picked.canceled && picked.assets[0]) {
       const asset = picked.assets[0];
       const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
       setFiles(prev => [...prev, {
         uri: asset.uri,
