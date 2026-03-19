@@ -183,7 +183,9 @@ export default function FocusModeScreen({ navigation, route }: Props) {
       <Modal visible={modalStep === 'next-action'} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Surface style={styles.modalCard} elevation={4}>
-            <Icon source="arrow-right-circle-outline" size={44} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 12 }} />
+            <View style={{ alignSelf: 'center', marginBottom: 12 }}>
+              <Icon source="arrow-right-circle-outline" size={44} color={COLORS.primary} />
+            </View>
             <Text style={styles.modalTitle}>Where did you leave off?</Text>
             <Text style={styles.modalSub}>Set your next action so you know exactly where to pick up.</Text>
             <TextInput
@@ -222,7 +224,9 @@ export default function FocusModeScreen({ navigation, route }: Props) {
       <Modal visible={modalStep === 'completed'} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Surface style={styles.modalCard} elevation={4}>
-            <Icon source="checkbox-marked-circle-outline" size={48} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 12 }} />
+            <View style={{ alignSelf: 'center', marginBottom: 12 }}>
+              <Icon source="checkbox-marked-circle-outline" size={48} color={COLORS.primary} />
+            </View>
             <Text style={styles.modalTitle}>Did you finish the task?</Text>
             <Text style={styles.modalSub}>"{task.title}"</Text>
             <View style={styles.completionRow}>

@@ -236,6 +236,31 @@ export default function AddTaskScreen({ navigation }: Props) {
         />
       )}
 
+      {/* AI Planner divider */}
+      {title.trim().length > 0 && (
+        <Surface style={styles.aiPromptCard} elevation={0}>
+          <Icon source="head-cog-outline" size={22} color={COLORS.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.aiPromptTitle}>Feeling overwhelmed by this task?</Text>
+            <Text style={styles.aiPromptSub}>Let AI break it into bite-sized steps for you.</Text>
+          </View>
+          <Button
+            mode="contained"
+            compact
+            buttonColor={COLORS.primary}
+            onPress={() => navigation.navigate('AIPlanner', {
+              title: title.trim(),
+              description,
+              category,
+              priority,
+              dueDate: dueDate?.toISOString() ?? null,
+            })}
+          >
+            Plan it
+          </Button>
+        </Surface>
+      )}
+
       {/* Save */}
       <Button
         mode="contained"
@@ -246,7 +271,7 @@ export default function AddTaskScreen({ navigation }: Props) {
         contentStyle={styles.saveButtonContent}
         buttonColor={COLORS.primary}
       >
-        Save Task
+        Save as single task
       </Button>
     </ScrollView>
   );
@@ -281,6 +306,18 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
 
-  saveButton: { borderRadius: 10, marginTop: 8 },
+  aiPromptCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: COLORS.primary + '10',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  aiPromptTitle: { fontSize: 14, fontWeight: '700', color: COLORS.primary, marginBottom: 2 },
+  aiPromptSub: { fontSize: 12, color: '#888' },
+
+  saveButton: { borderRadius: 10, marginTop: 4 },
   saveButtonContent: { paddingVertical: 6 },
 });

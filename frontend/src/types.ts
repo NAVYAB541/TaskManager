@@ -10,6 +10,19 @@ export type Task = {
   estimateMinutes?: number;
   energy?: 'high' | 'medium' | 'low' | null;
   nextAction?: string;
+  parentTaskId?: string | null;
+};
+
+export type AISubtask = {
+  title: string;
+  estimateMinutes: number;
+  nextAction: string;
+  energy: 'high' | 'medium' | 'low';
+};
+
+export type AIPlanResult = {
+  feasibility: { ok: boolean; message: string };
+  subtasks: AISubtask[];
 };
 
 export type RootStackParamList = {
@@ -18,4 +31,11 @@ export type RootStackParamList = {
   TaskDetails: { task: Task };
   LaunchMe: undefined;
   FocusMode: { task: Task };
+  AIPlanner: {
+    title: string;
+    description: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    dueDate: string | null;
+  };
 };

@@ -6,6 +6,7 @@ import AddTaskScreen from './src/screens/AddTaskScreen';
 import TaskDetailsScreen from './src/screens/TaskDetailsScreen';
 import LaunchMeScreen from './src/screens/LaunchMeScreen';
 import FocusModeScreen from './src/screens/FocusModeScreen';
+import AIPlannerScreen from './src/screens/AIPlannerScreen';
 import { RootStackParamList } from './src/types';
 import { requestNotificationPermission } from './src/utils/notifications';
 import { ThemeProvider } from './src/context/ThemeContext';
@@ -31,6 +32,11 @@ export default function App() {
             name="FocusMode"
             component={FocusModeScreen}
             options={{ title: 'Focus Mode', headerShown: false }}
+          />
+          <Stack.Screen
+            name="AIPlanner"
+            component={AIPlannerScreen}
+            options={{ title: 'Plan with AI' }}
           />
         </Stack.Navigator>
       </NavigationContainer>
