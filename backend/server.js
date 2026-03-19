@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 require('dotenv').config();
 
 const app = express();
@@ -169,29 +169,17 @@ app.post('/tasks/:id/complete-focus', async (req, res) => {
 // ─── POST AI plan task ────────────────────────────────────────────────────────
 app.post('/ai/plan-task', async (req, res) => {
   try {
-    const { title, description, category, totalHours, files } = req.body;
+    const { title, description, category, totalHours } = req.body;
     if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    // Build multimodal parts: text prompt + any uploaded files
-    const parts = [];
-
-    if (files?.length) {
-      for (const f of files) {
-        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
-      }
-    }
-
-    parts.push({
-      text: `You are a student productivity coach. Break this task into manageable subtasks.
+    const prompt = `You are a student productivity coach. Break this task into manageable subtasks.
 
 Task: "${title.trim()}"
 ${description ? `Details: ${description}` : ''}
 ${category ? `Category: ${category}` : ''}
 ${totalHours ? `Time available: ${totalHours} hours` : ''}
-${files?.length ? `(See attached file(s) for more context)` : ''}
 
 Respond ONLY with valid JSON (no markdown, no extra text):
 {
@@ -215,15 +203,17 @@ Rules:
 - nextAction should be a single specific micro-step (like "Open a blank doc and jot 3 bullet points").
 - estimateMinutes per subtask should be 10–60 min.
 - energy must be "high", "medium", or "low".
-- Total estimated time across subtasks should roughly match totalHours if given.`,
+- Total estimated time across subtasks should roughly match totalHours if given.`;
+
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
     });
 
-    const result = await model.generateContent(parts);
-    const raw = result.response.text().trim();
-
-    // Strip markdown code fences if present
-    const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
-    const parsed = JSON.parse(cleaned);
+    const raw = completion.choices[0].message.content.trim();
+    const parsed = JSON.parse(raw);
 
     res.json(parsed);
   } catch (err) {
