@@ -16,6 +16,7 @@ export type Task = {
 
 export type AISubtask = {
   title: string;
+  description: string;
   estimateMinutes: number;
   nextAction: string;
   energy: 'high' | 'medium' | 'low';
@@ -38,5 +39,6 @@ export type RootStackParamList = {
     category: string;
     priority: 'low' | 'medium' | 'high';
     dueDate: string | null;
+    existingTaskId?: string;
   };
 };

@@ -70,6 +70,7 @@ export default function TaskListScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'TaskList'>) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [allTopLevel, setAllTopLevel] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'completed' | 'pending'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -95,7 +96,7 @@ export default function TaskListScreen({
     return max ? Math.round((score / max) * 100) : 0;
   };
 
-  const productivityScore = computeProductivityScore(tasks);
+  const productivityScore = computeProductivityScore(allTopLevel);
 
   const loadTasks = async () => {
     try {
@@ -122,7 +123,9 @@ export default function TaskListScreen({
       );
 
       // Only top-level tasks go through filters
-      let data = all.filter(t => !t.parentTaskId);
+      const topLevel = all.filter(t => !t.parentTaskId);
+      setAllTopLevel(topLevel);
+      let data = topLevel.slice();
       if (filter === 'completed') data = data.filter(t => t.completed);
       if (filter === 'pending')   data = data.filter(t => !t.completed);
       if (categoryFilter !== 'all') data = data.filter(t => t.category === categoryFilter);

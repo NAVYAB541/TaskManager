@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Platform, Alert } from 'react-native';
-import { TextInput, Button, SegmentedButtons, Surface, Switch, IconButton } from 'react-native-paper';
+import { TextInput, Button, SegmentedButtons, Surface, Switch, IconButton, Icon } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Task } from '../types';
 import { COLORS } from '../constants/Theme';
@@ -283,6 +283,23 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
         </Surface>
       )}
 
+      {/* AI planner prompt */}
+      <Surface style={styles.aiPromptCard} elevation={0}>
+        <Icon source="head-cog-outline" size={22} color={COLORS.primary} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.aiPromptTitle}>Need a plan?</Text>
+          <Text style={styles.aiPromptSub}>Let AI break it into subtasks.</Text>
+        </View>
+        <Button mode="contained" compact buttonColor={COLORS.primary}
+          onPress={() => navigation.navigate('AIPlanner', {
+            title: title.trim(), description, category, priority,
+            dueDate: dueDate?.toISOString() ?? null,
+            existingTaskId: task.id,
+          })}>
+          Plan it
+        </Button>
+      </Surface>
+
       {/* Completed toggle */}
       <View style={styles.switchRow}>
         <Text style={styles.switchLabel}>Mark as Completed</Text>
@@ -344,6 +361,13 @@ const styles = StyleSheet.create({
   switchLabel: { fontSize: 15, fontWeight: '600', color: '#333' },
   estimateRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   estimateInput: { flex: 1, backgroundColor: 'white' },
+
+  aiPromptCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: COLORS.primary + '10', borderRadius: 12, padding: 14, marginBottom: 14,
+  },
+  aiPromptTitle: { fontSize: 14, fontWeight: '700', color: COLORS.primary, marginBottom: 2 },
+  aiPromptSub: { fontSize: 12, color: '#888' },
 
   saveButton: { borderRadius: 10, marginTop: 4 },
   saveButtonContent: { paddingVertical: 6 },

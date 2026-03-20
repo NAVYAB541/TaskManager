@@ -190,6 +190,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
   "subtasks": [
     {
       "title": "Short subtask title",
+      "description": "1-2 sentences explaining what this step involves and why it matters.",
       "estimateMinutes": 20,
       "nextAction": "The very first small thing to do — make it feel easy to start",
       "energy": "medium"
@@ -199,16 +200,19 @@ Respond ONLY with valid JSON (no markdown, no extra text):
 
 Rules:
 - If totalHours is given and seems unrealistic for the task, set feasibility.ok to false and explain gently.
-- Create 3–5 subtasks. Each must feel non-overwhelming.
+- Create 4–7 subtasks covering the full scope of the task. Each must feel non-overwhelming.
+- description: briefly explain what this subtask involves (1-2 sentences).
 - nextAction should be a single specific micro-step (like "Open a blank doc and jot 3 bullet points").
 - estimateMinutes per subtask should be 10–60 min.
 - energy must be "high", "medium", or "low".
-- Total estimated time across subtasks should roughly match totalHours if given.`;
+- Total estimated time across all subtasks should roughly match totalHours if given.
+- IMPORTANT: Always output a complete, valid JSON object with ALL subtasks fully written out. Never truncate.`;
 
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
+      max_tokens: 2000,
       response_format: { type: 'json_object' },
     });
 

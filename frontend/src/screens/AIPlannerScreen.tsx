@@ -39,7 +39,7 @@ const ENERGY_COLOR = {
 };
 
 export default function AIPlannerScreen({ navigation, route }: Props) {
-  const { title, description: initialDesc, category, priority, dueDate } = route.params;
+  const { title, description: initialDesc, category, priority, dueDate, existingTaskId } = route.params;
 
   const [description, setDescription] = useState(initialDesc);
   const [totalHours, setTotalHours] = useState('');
@@ -126,35 +126,41 @@ export default function AIPlannerScreen({ navigation, route }: Props) {
   const saveAll = async () => {
     setSaving(true);
     try {
-      // 1. Create the parent task
-      const parentRes = await fetch(`${BASE_URL}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description,
-          priority,
-          dueDate,
-          category,
-          estimateMinutes: subtasks.reduce((sum, s) => sum + s.estimateMinutes, 0),
-        }),
-      });
-      const parent = await parentRes.json();
+      let parentId = existingTaskId;
 
-      // 2. Bulk-create subtasks linked to parent
+      if (!parentId) {
+        // Create the parent task only if we don't have an existing one
+        const parentRes = await fetch(`${BASE_URL}/tasks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            description,
+            priority,
+            dueDate,
+            category,
+            estimateMinutes: subtasks.reduce((sum, s) => sum + s.estimateMinutes, 0),
+          }),
+        });
+        const parent = await parentRes.json();
+        parentId = parent.id;
+      }
+
+      // Bulk-create subtasks linked to parent
       await fetch(`${BASE_URL}/tasks/bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tasks: subtasks.map(s => ({
             title:           s.title,
+            description:     s.description,
             category,
             priority,
             dueDate,
             estimateMinutes: s.estimateMinutes,
             energy:          s.energy,
             nextAction:      s.nextAction,
-            parentTaskId:    parent.id,
+            parentTaskId:    parentId,
           })),
         }),
       });
@@ -302,6 +308,10 @@ export default function AIPlannerScreen({ navigation, route }: Props) {
                 />
               </View>
 
+              {!!s.description && (
+                <Text style={styles.subtaskDesc}>{s.description}</Text>
+              )}
+
               <View style={styles.subtaskNextAction}>
                 <Icon source="arrow-right-circle-outline" size={15} color={COLORS.primary} />
                 <TextInput
@@ -441,6 +451,8 @@ const styles = StyleSheet.create({
   },
   subtaskIndexText: { fontSize: 12, fontWeight: '800', color: COLORS.primary },
   subtaskTitle: { flex: 1, backgroundColor: 'transparent', fontSize: 15, fontWeight: '600' },
+
+  subtaskDesc: { fontSize: 13, color: '#666', lineHeight: 18, marginBottom: 8 },
 
   subtaskNextAction: {
     flexDirection: 'row',
