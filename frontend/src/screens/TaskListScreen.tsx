@@ -89,14 +89,25 @@ export default function TaskListScreen({
     });
   };
 
-  const computeProductivityScore = (list: Task[]) => {
+  const computeProductivityScore = (list: Task[], subMap: Record<string, Task[]>) => {
     if (!list.length) return 0;
-    const max = list.reduce((acc, t) => acc + (t.priority === 'high' ? 3 : t.priority === 'medium' ? 2 : 1), 0);
-    const score = list.reduce((acc, t) => acc + (t.completed ? (t.priority === 'high' ? 3 : t.priority === 'medium' ? 2 : 1) : 0), 0);
-    return max ? Math.round((score / max) * 100) : 0;
+    let totalWeight = 0;
+    let doneWeight = 0;
+    for (const t of list) {
+      const weight = t.priority === 'high' ? 3 : t.priority === 'medium' ? 2 : 1;
+      const subs = subMap[t.id] ?? [];
+      if (subs.length > 0) {
+        const ratio = subs.filter(s => s.completed).length / subs.length;
+        doneWeight += weight * ratio;
+      } else {
+        if (t.completed) doneWeight += weight;
+      }
+      totalWeight += weight;
+    }
+    return totalWeight ? Math.round((doneWeight / totalWeight) * 100) : 0;
   };
 
-  const productivityScore = computeProductivityScore(allTopLevel);
+  const productivityScore = computeProductivityScore(allTopLevel, subtasksByParent);
 
   const loadTasks = async () => {
     try {

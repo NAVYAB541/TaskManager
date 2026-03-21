@@ -126,6 +126,7 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
     }
   };
 
+  const isSubtask = !!task.parentTaskId;
   const nextIncomplete = subtasks.find(s => !s.completed);
   const doneCount = subtasks.filter(s => s.completed).length;
 
@@ -235,70 +236,75 @@ export default function TaskDetailsScreen({ navigation, route }: Props) {
           onChange={(_, date) => { setShowDatePicker(Platform.OS === 'ios'); if (date) setDueDate(date); }} />
       )}
 
-      {/* ── Subtasks ── */}
-      <View style={styles.subtasksHeader}>
-        <View>
-          <Text style={styles.label}>Subtasks</Text>
-          {subtasks.length > 0 && (
-            <Text style={styles.subtaskProgress}>{doneCount}/{subtasks.length} done</Text>
+      {/* ── Subtasks + AI card — only for top-level tasks ── */}
+      {!isSubtask && (
+        <>
+          <View style={styles.subtasksHeader}>
+            <View>
+              <Text style={styles.label}>Subtasks</Text>
+              {subtasks.length > 0 && (
+                <Text style={styles.subtaskProgress}>{doneCount}/{subtasks.length} done</Text>
+              )}
+            </View>
+            <Button mode="text" compact icon="plus" textColor={COLORS.primary}
+              onPress={() => setShowSubtaskForm(v => !v)}>Add</Button>
+          </View>
+
+          {subtasks.map((s) => (
+            <Surface key={s.id} style={[styles.subtaskRow, s.completed && styles.subtaskRowDone]} elevation={0}>
+              <IconButton
+                icon={s.completed ? 'check-circle' : 'circle-outline'}
+                iconColor={s.completed ? COLORS.secondary : '#ccc'}
+                size={22}
+                onPress={() => toggleSubtask(s)}
+                style={{ margin: 0 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.subtaskTitle, s.completed && styles.subtaskTitleDone]}>{s.title}</Text>
+                {!!s.description && <Text style={styles.subtaskDesc} numberOfLines={2}>{s.description}</Text>}
+                <Text style={styles.subtaskEst}>{s.estimateMinutes ?? 30} min</Text>
+              </View>
+              <IconButton icon="pencil-outline" iconColor="#bbb" size={18}
+                onPress={() => navigation.navigate('TaskDetails', { task: s })} style={{ margin: 0 }} />
+              <IconButton icon="delete-outline" iconColor="#ddd" size={18}
+                onPress={() => deleteSubtask(s)} style={{ margin: 0 }} />
+            </Surface>
+          ))}
+
+          {showSubtaskForm && (
+            <Surface style={styles.subtaskForm} elevation={0}>
+              <TextInput label="Subtask title" value={newSubTitle} onChangeText={setNewSubTitle}
+                mode="outlined" style={styles.subInput} outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
+              <TextInput label="Description (optional)" value={newSubDesc} onChangeText={setNewSubDesc}
+                mode="outlined" style={styles.subInput} outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
+              <TextInput label="Estimate (minutes)" value={newSubEst} onChangeText={setNewSubEst}
+                mode="outlined" keyboardType="number-pad" style={styles.subInput}
+                outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
+              <View style={styles.subFormActions}>
+                <Button mode="text" textColor="#aaa" compact onPress={() => setShowSubtaskForm(false)}>Cancel</Button>
+                <Button mode="contained" buttonColor={COLORS.primary} compact onPress={addSubtask}
+                  disabled={!newSubTitle.trim()}>Add subtask</Button>
+              </View>
+            </Surface>
           )}
-        </View>
-        <Button mode="text" compact icon="plus" textColor={COLORS.primary}
-          onPress={() => setShowSubtaskForm(v => !v)}>Add</Button>
-      </View>
 
-      {subtasks.map((s, i) => (
-        <Surface key={s.id} style={[styles.subtaskRow, s.completed && styles.subtaskRowDone]} elevation={0}>
-          <IconButton
-            icon={s.completed ? 'check-circle' : 'circle-outline'}
-            iconColor={s.completed ? COLORS.secondary : '#ccc'}
-            size={22}
-            onPress={() => toggleSubtask(s)}
-            style={{ margin: 0 }}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.subtaskTitle, s.completed && styles.subtaskTitleDone]}>{s.title}</Text>
-            {!!s.description && <Text style={styles.subtaskDesc} numberOfLines={2}>{s.description}</Text>}
-            <Text style={styles.subtaskEst}>{s.estimateMinutes ?? 30} min</Text>
-          </View>
-          <IconButton icon="delete-outline" iconColor="#ddd" size={18}
-            onPress={() => deleteSubtask(s)} style={{ margin: 0 }} />
-        </Surface>
-      ))}
-
-      {showSubtaskForm && (
-        <Surface style={styles.subtaskForm} elevation={0}>
-          <TextInput label="Subtask title" value={newSubTitle} onChangeText={setNewSubTitle}
-            mode="outlined" style={styles.subInput} outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
-          <TextInput label="Description (optional)" value={newSubDesc} onChangeText={setNewSubDesc}
-            mode="outlined" style={styles.subInput} outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
-          <TextInput label="Estimate (minutes)" value={newSubEst} onChangeText={setNewSubEst}
-            mode="outlined" keyboardType="number-pad" style={styles.subInput}
-            outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
-          <View style={styles.subFormActions}>
-            <Button mode="text" textColor="#aaa" compact onPress={() => setShowSubtaskForm(false)}>Cancel</Button>
-            <Button mode="contained" buttonColor={COLORS.primary} compact onPress={addSubtask}
-              disabled={!newSubTitle.trim()}>Add subtask</Button>
-          </View>
-        </Surface>
-      )}
-
-      {/* AI planner prompt */}
-      <Surface style={styles.aiPromptCard} elevation={0}>
-        <Icon source="head-cog-outline" size={22} color={COLORS.primary} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.aiPromptTitle}>Need a plan?</Text>
-          <Text style={styles.aiPromptSub}>Let AI break it into subtasks.</Text>
-        </View>
-        <Button mode="contained" compact buttonColor={COLORS.primary}
-          onPress={() => navigation.navigate('AIPlanner', {
-            title: title.trim(), description, category, priority,
-            dueDate: dueDate?.toISOString() ?? null,
-            existingTaskId: task.id,
-          })}>
-          Plan it
-        </Button>
-      </Surface>
+          <Surface style={styles.aiPromptCard} elevation={0}>
+            <Icon source="head-cog-outline" size={22} color={COLORS.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.aiPromptTitle}>Need a plan?</Text>
+              <Text style={styles.aiPromptSub}>Let AI break it into subtasks.</Text>
+            </View>
+            <Button mode="contained" compact buttonColor={COLORS.primary}
+              onPress={() => navigation.navigate('AIPlanner', {
+                title: title.trim(), description, category, priority,
+                dueDate: dueDate?.toISOString() ?? null,
+                existingTaskId: task.id,
+              })}>
+              Plan it
+            </Button>
+          </Surface>
+        </>
+      )
 
       {/* Completed toggle */}
       <View style={styles.switchRow}>

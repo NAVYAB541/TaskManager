@@ -124,6 +124,35 @@ export default function AIPlannerScreen({ navigation, route }: Props) {
 
   // ─── Save all tasks ────────────────────────────────────────────────────────
   const saveAll = async () => {
+    // If there's an existing task, check if it already has subtasks
+    if (existingTaskId) {
+      const res = await fetch(`${BASE_URL}/tasks?parentTaskId=${existingTaskId}`);
+      const existing: { id: string }[] = await res.json();
+      if (existing.length > 0) {
+        await new Promise<void>((resolve, reject) => {
+          Alert.alert(
+            'Subtasks already exist',
+            `This task already has ${existing.length} subtask${existing.length > 1 ? 's' : ''}. What would you like to do?`,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => reject(new Error('cancelled')) },
+              {
+                text: 'Add to existing',
+                onPress: () => resolve(),
+              },
+              {
+                text: 'Replace all',
+                style: 'destructive',
+                onPress: async () => {
+                  await Promise.all(existing.map(t => fetch(`${BASE_URL}/tasks/${t.id}`, { method: 'DELETE' })));
+                  resolve();
+                },
+              },
+            ]
+          );
+        });
+      }
+    }
+
     setSaving(true);
     try {
       let parentId = existingTaskId;

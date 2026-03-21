@@ -89,7 +89,7 @@ app.get('/tasks/:id', async (req, res) => {
 app.post('/tasks', async (req, res) => {
   try {
     const { title, description, dueDate, priority, completed, category, tags,
-            estimateMinutes, energy, nextAction } = req.body;
+            estimateMinutes, energy, nextAction, parentTaskId } = req.body;
     if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
     const task = await Task.create({
       title:           title.trim(),
@@ -102,6 +102,7 @@ app.post('/tasks', async (req, res) => {
       estimateMinutes: estimateMinutes ?? 30,
       energy:          energy ?? null,
       nextAction:      nextAction ?? '',
+      parentTaskId:    parentTaskId ?? null,
     });
     res.status(201).json(task);
   } catch (err) {
