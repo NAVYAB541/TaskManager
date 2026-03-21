@@ -1,6 +1,6 @@
-# Task Manager — Cross-Platform Mobile App
+# TaskManager — Cross-Platform Mobile App
 
-A full-stack mobile task management app built with **React Native** and **TypeScript**, backed by a **Node.js/Express** REST API with a persistent **MongoDB Atlas** database. Deployed on **Render** and runs on both iOS and Android via Expo.
+A full-stack mobile productivity app built with **React Native** and **TypeScript**, backed by a **Node.js/Express** REST API with a persistent **MongoDB Atlas** database. Deployed on **Render** and runs on both iOS and Android via Expo.
 
 ---
 
@@ -12,15 +12,47 @@ A full-stack mobile task management app built with **React Native** and **TypeSc
 
 ## Features
 
+### Task Management
 - Create, edit, complete, and delete tasks
-- Priority levels — High, Medium, Low (colour-coded)
+- Priority levels — High, Medium, Low with colour-coded chips
 - Category filtering — Work, Personal, Study, General
 - Dynamic tag system with colour-coded badges
 - Due dates with overdue detection and warnings
-- Weighted productivity score based on completed task priorities
-- Push notification reminders for upcoming tasks
-- Filter by status (All / Pending / Completed) + sort by due date, priority, or title
-- Persistent storage via MongoDB Atlas — data survives server restarts
+- Filter by status (All / Pending / Completed) and sort by due date, priority, or title
+
+### Subtasks
+- Break any task into subtasks manually or via AI
+- Accordion expand/collapse on the task list to view subtasks
+- Toggle individual subtask completion inline
+- Edit or delete subtasks after saving
+- Progress bar showing how many subtasks are done
+- Next incomplete subtask surfaced automatically — no manual "next action" field needed
+
+### AI Planning
+- Tap "Plan it with AI" when creating or editing a task
+- AI (Llama 3.3 70B via Groq) breaks the task into 4–7 subtasks with time estimates, energy levels, and a description per step
+- Attach photos or PDFs for additional context
+- Edit any AI-generated subtask before saving
+- When re-planning a task that already has subtasks, choose to replace them or add to them
+- Feasibility check — AI flags if the time budget seems unrealistic
+
+### Launch Me
+- Select a time window (15m, 30m, 1h, 1h 30m, 2h) and see the top 3 tasks that fit
+- For projects with subtasks, shows only the next incomplete subtask — not the whole project
+- Customisable energy schedule (morning / afternoon / evening) saved to device
+- Start any task directly into Focus Mode
+
+### Focus Mode
+- Full-screen timer with a visual ring
+- Warning shown when time estimate is exceeded
+- Three-step exit flow: rate how it felt → mark done or not → note where you left off
+- Focus sessions logged without auto-completing the task
+
+### Productivity
+- Weighted productivity score on the task list
+- Score accounts for subtask completion ratios, not just binary task completion
+- Score stays consistent regardless of which filters are active
+- Push notification reminders for tasks with due dates
 
 ---
 
@@ -30,24 +62,27 @@ A full-stack mobile task management app built with **React Native** and **TypeSc
 | Technology | Purpose |
 |---|---|
 | React Native | Cross-platform mobile (iOS + Android) |
-| Expo | Development toolchain & build system |
+| Expo SDK 54 | Development toolchain and build system |
 | TypeScript | Type safety across the codebase |
-| React Navigation | Stack + tab navigation |
-| AsyncStorage | Local caching |
+| React Navigation | Stack navigation |
+| React Native Paper | Material Design component library |
+| AsyncStorage | Local persistence for user preferences |
+| expo-image-picker / expo-document-picker | File attachments for AI context |
 
 ### Backend
 | Technology | Purpose |
 |---|---|
 | Node.js + Express | REST API server |
 | MongoDB Atlas | Cloud-hosted persistent database |
-| Mongoose | Schema validation & ODM |
-| Render | Backend deployment & hosting |
+| Mongoose | Schema validation and ODM |
+| Groq (Llama 3.3 70B) | AI subtask planning |
+| Render | Backend deployment and hosting |
 
 ---
 
 ## Getting Started
 
-> The backend is already live — no local server setup needed. You can hit the API directly at `https://taskmanager-pn0w.onrender.com`.
+The backend is already live — no local server setup needed. You can hit the API directly at `https://taskmanager-pn0w.onrender.com`.
 
 ### Prerequisites
 - Node.js 18+
@@ -56,13 +91,13 @@ A full-stack mobile task management app built with **React Native** and **TypeSc
 ### Run the app
 
 ```bash
-git clone https://github.com/NAVYAB541/task-manager.git
-cd task-manager/frontend
+git clone https://github.com/NAVYAB541/TaskManager.git
+cd TaskManager/frontend
 npm install
-npx expo start
+npx expo start --no-web
 ```
 
-Scan the QR code with Expo Go. The app points to the live Render backend out of the box — no extra config needed.
+Scan the QR code with Expo Go. The app connects to the live Render backend automatically — no extra config needed.
 
 ---
 
@@ -72,26 +107,14 @@ Base URL: `https://taskmanager-pn0w.onrender.com`
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/tasks` | Get all tasks (supports `?completed=`, `?category=`, `?tag=`) |
+| GET | `/tasks` | Get all tasks — supports `?completed=`, `?category=`, `?tag=`, `?parentTaskId=` |
 | GET | `/tasks/:id` | Get a single task |
-| POST | `/tasks` | Create a new task |
+| POST | `/tasks` | Create a task |
 | PUT | `/tasks/:id` | Update a task |
 | DELETE | `/tasks/:id` | Delete a task |
-| GET | `/health` | Health check |
-
-### Example — Create a task
-
-```bash
-curl -X POST https://taskmanager-pn0w.onrender.com/tasks \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Finish resume",
-    "priority": "high",
-    "category": "Personal",
-    "tags": ["career", "urgent"],
-    "dueDate": "2025-03-01"
-  }'
-```
+| POST | `/tasks/bulk` | Bulk-create subtasks in one request |
+| POST | `/tasks/:id/complete-focus` | Log a focus session for a task |
+| POST | `/ai/plan-task` | Generate an AI subtask plan |
 
 ### Task schema
 
@@ -105,6 +128,9 @@ curl -X POST https://taskmanager-pn0w.onrender.com/tasks \
   "completed": "boolean",
   "category": "string",
   "tags": ["string"],
+  "estimateMinutes": "number",
+  "energy": "high | medium | low | null",
+  "parentTaskId": "string | null",
   "createdAt": "timestamp",
   "updatedAt": "timestamp"
 }
@@ -115,24 +141,25 @@ curl -X POST https://taskmanager-pn0w.onrender.com/tasks \
 ## Project Structure
 
 ```
-task-manager/
+TaskManager/
 ├── backend/
-│   ├── server.js          # Express app + Mongoose models + all routes
+│   ├── server.js          # Express app, Mongoose models, all routes, AI endpoint
 │   ├── .env               # Local env vars (gitignored)
 │   └── package.json
 │
 └── frontend/
     ├── src/
     │   ├── screens/
-    │   │   ├── TaskListScreen.tsx    # Main list with filters + productivity score
-    │   │   ├── AddTaskScreen.tsx     # Create new task
-    │   │   └── TaskDetailsScreen.tsx
+    │   │   ├── TaskListScreen.tsx      # Main list, filters, productivity score, accordion subtasks
+    │   │   ├── AddTaskScreen.tsx       # Create task with manual subtasks and AI planning prompt
+    │   │   ├── TaskDetailsScreen.tsx   # Edit task, manage subtasks, re-plan with AI
+    │   │   ├── AIPlannerScreen.tsx     # AI breakdown flow with file attachments
+    │   │   ├── LaunchMeScreen.tsx      # Time-windowed task picker with energy preferences
+    │   │   └── FocusModeScreen.tsx     # Full-screen focus timer with session logging
     │   ├── constants/
-    │   │   └── Theme.ts              # Colour tokens
-    │   ├── types/
-    │   │   └── index.ts              # Shared TypeScript types
+    │   │   └── Theme.ts                # Colour tokens
     │   └── utils/
-    │       └── notifications.ts      # Push notification helpers
+    │       └── notifications.ts        # Push notification helpers
     ├── app.json
     └── package.json
 ```
@@ -145,8 +172,11 @@ task-manager/
 - Atlas cluster secured with IP allowlist and scoped database user permissions
 - `.env` excluded from version control via `.gitignore`
 - Render environment variables used for all production secrets
+- Groq API key stored server-side only — never exposed to the client
 
-## 👩‍💻 Author
+---
 
-**Navya Bhutoria**  
+## Author
+
+**Navya Bhutoria**
 [LinkedIn](https://linkedin.com/in/navya-bhutoria) · [GitHub](https://github.com/NAVYAB541)
