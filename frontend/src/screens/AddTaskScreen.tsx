@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { scheduleTaskReminder } from '../utils/notifications';
 import {
   View,
@@ -21,6 +21,7 @@ import { COLORS } from '../constants/Theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import dayjs from 'dayjs';
+import { useTheme, AppColors } from '../context/ThemeContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddTask'>;
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
@@ -35,6 +36,9 @@ function inferEnergyFromTime(): 'high' | 'medium' | 'low' {
 }
 
 export default function AddTaskScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [title, setTitle]               = useState('');
   const [description, setDescription]   = useState('');
   const [priority, setPriority]         = useState<'low' | 'medium' | 'high'>('medium');
@@ -129,11 +133,13 @@ export default function AddTaskScreen({ navigation }: Props) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
       <TextInput label="Title" value={title} onChangeText={setTitle}
-        mode="outlined" style={styles.input} outlineColor="#ddd" activeOutlineColor={COLORS.primary} />
+        mode="outlined" style={styles.input} outlineColor={colors.border} activeOutlineColor={COLORS.primary}
+        backgroundColor={colors.surface} />
 
       <TextInput label="Description" value={description} onChangeText={setDescription}
         mode="outlined" multiline numberOfLines={3} style={styles.input}
-        outlineColor="#ddd" activeOutlineColor={COLORS.primary} />
+        outlineColor={colors.border} activeOutlineColor={COLORS.primary}
+        backgroundColor={colors.surface} />
 
       {/* Time estimate — hours + minutes */}
       <Text style={styles.label}>
@@ -148,8 +154,9 @@ export default function AddTaskScreen({ navigation }: Props) {
           mode="outlined"
           keyboardType="number-pad"
           style={styles.estimateInput}
-          outlineColor="#ddd"
+          outlineColor={colors.border}
           activeOutlineColor={COLORS.primary}
+          backgroundColor={colors.surface}
           left={<TextInput.Icon icon="timer-outline" />}
         />
         <TextInput
@@ -159,8 +166,9 @@ export default function AddTaskScreen({ navigation }: Props) {
           mode="outlined"
           keyboardType="number-pad"
           style={styles.estimateInput}
-          outlineColor="#ddd"
+          outlineColor={colors.border}
           activeOutlineColor={COLORS.primary}
+          backgroundColor={colors.surface}
         />
       </View>
 
@@ -207,13 +215,14 @@ export default function AddTaskScreen({ navigation }: Props) {
       {/* Tags */}
       <TextInput label="Tags (comma-separated)" value={tagsInput} onChangeText={setTagsInput}
         mode="outlined" placeholder="e.g. Urgent, Shopping" style={styles.input}
-        outlineColor="#ddd" activeOutlineColor={COLORS.primary}
+        outlineColor={colors.border} activeOutlineColor={COLORS.primary}
+        backgroundColor={colors.surface}
         left={<TextInput.Icon icon="tag-multiple-outline" />} />
 
       {/* Due date */}
       <Text style={styles.label}>Due Date</Text>
       <Button mode="outlined" icon="calendar" onPress={() => setShowDatePicker(true)}
-        style={styles.dateButton} textColor={dueDate ? COLORS.primary : '#888'}>
+        style={styles.dateButton} textColor={dueDate ? COLORS.primary : colors.textMuted}>
         {dueDate ? dayjs(dueDate).format('DD MMM YYYY') : 'Select date'}
       </Button>
       {dueDate && (
@@ -245,21 +254,24 @@ export default function AddTaskScreen({ navigation }: Props) {
             {!!s.description && <Text style={styles.subtaskChipDesc} numberOfLines={1}>{s.description}</Text>}
             <Text style={styles.subtaskChipEst}>{s.estimateMinutes} min</Text>
           </View>
-          <IconButton icon="close" size={18} iconColor="#ccc" onPress={() => removeSubtask(i)} />
+          <IconButton icon="close" size={18} iconColor={colors.textDisabled} onPress={() => removeSubtask(i)} />
         </Surface>
       ))}
 
       {showSubtaskForm && (
         <Surface style={styles.subtaskForm} elevation={0}>
           <TextInput label="Subtask title" value={newSubTitle} onChangeText={setNewSubTitle}
-            mode="outlined" style={styles.subInput} outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
+            mode="outlined" style={styles.subInput} outlineColor={colors.border} activeOutlineColor={COLORS.primary}
+            backgroundColor={colors.surface} dense />
           <TextInput label="Description (optional)" value={newSubDesc} onChangeText={setNewSubDesc}
-            mode="outlined" style={styles.subInput} outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
+            mode="outlined" style={styles.subInput} outlineColor={colors.border} activeOutlineColor={COLORS.primary}
+            backgroundColor={colors.surface} dense />
           <TextInput label="Estimate (minutes)" value={newSubEst} onChangeText={setNewSubEst}
             mode="outlined" keyboardType="number-pad" style={styles.subInput}
-            outlineColor="#ddd" activeOutlineColor={COLORS.primary} dense />
+            outlineColor={colors.border} activeOutlineColor={COLORS.primary}
+            backgroundColor={colors.surface} dense />
           <View style={styles.subFormActions}>
-            <Button mode="text" textColor="#aaa" compact onPress={() => setShowSubtaskForm(false)}>Cancel</Button>
+            <Button mode="text" textColor={colors.textMuted} compact onPress={() => setShowSubtaskForm(false)}>Cancel</Button>
             <Button mode="contained" buttonColor={COLORS.primary} compact onPress={addSubtask}
               disabled={!newSubTitle.trim()}>Add subtask</Button>
           </View>
@@ -293,46 +305,48 @@ export default function AddTaskScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: 16, paddingBottom: 48 },
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    content: { padding: 16, paddingBottom: 48 },
 
-  input: { backgroundColor: 'white', marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 8 },
-  labelHint: { fontSize: 12, fontWeight: '400', color: '#aaa' },
-  segmented: { marginBottom: 16 },
+    input: { backgroundColor: colors.surface, marginBottom: 16 },
+    label: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 8 },
+    labelHint: { fontSize: 12, fontWeight: '400', color: colors.textMuted },
+    segmented: { marginBottom: 16 },
 
-  pickerSurface: { backgroundColor: 'white', borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 16, overflow: 'hidden' },
-  picker: { width: '100%' },
-  dateButton: { borderColor: '#ddd', marginBottom: 8, justifyContent: 'flex-start' },
+    pickerSurface: { backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border, marginBottom: 16, overflow: 'hidden' },
+    picker: { width: '100%' },
+    dateButton: { borderColor: colors.border, marginBottom: 8, justifyContent: 'flex-start' },
 
-  subtasksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    subtasksHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
 
-  subtaskChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'white', borderRadius: 10, padding: 10, marginBottom: 8,
-    borderWidth: 1, borderColor: '#eee',
-  },
-  subtaskChipIndex: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary + '18', alignItems: 'center', justifyContent: 'center' },
-  subtaskChipIndexText: { fontSize: 11, fontWeight: '800', color: COLORS.primary },
-  subtaskChipTitle: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
-  subtaskChipDesc: { fontSize: 12, color: '#888', marginTop: 1 },
-  subtaskChipEst: { fontSize: 11, color: COLORS.primary, marginTop: 2 },
+    subtaskChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: colors.surface, borderRadius: 10, padding: 10, marginBottom: 8,
+      borderWidth: 1, borderColor: colors.borderLight,
+    },
+    subtaskChipIndex: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary + '18', alignItems: 'center', justifyContent: 'center' },
+    subtaskChipIndexText: { fontSize: 11, fontWeight: '800', color: COLORS.primary },
+    subtaskChipTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
+    subtaskChipDesc: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+    subtaskChipEst: { fontSize: 11, color: COLORS.primary, marginTop: 2 },
 
-  estimateRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  estimateInput: { flex: 1, backgroundColor: 'white' },
+    estimateRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+    estimateInput: { flex: 1, backgroundColor: colors.surface },
 
-  subtaskForm: { backgroundColor: 'white', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#eee' },
-  subInput: { backgroundColor: 'white', marginBottom: 8 },
-  subFormActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
+    subtaskForm: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: colors.borderLight },
+    subInput: { backgroundColor: colors.surface, marginBottom: 8 },
+    subFormActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
 
-  aiPromptCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: COLORS.primary + '10', borderRadius: 12, padding: 14, marginBottom: 14,
-  },
-  aiPromptTitle: { fontSize: 14, fontWeight: '700', color: COLORS.primary, marginBottom: 2 },
-  aiPromptSub: { fontSize: 12, color: '#888' },
+    aiPromptCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: COLORS.primary + '10', borderRadius: 12, padding: 14, marginBottom: 14,
+    },
+    aiPromptTitle: { fontSize: 14, fontWeight: '700', color: COLORS.primary, marginBottom: 2 },
+    aiPromptSub: { fontSize: 12, color: colors.textMuted },
 
-  saveButton: { borderRadius: 10, marginTop: 4 },
-  saveButtonContent: { paddingVertical: 6 },
-});
+    saveButton: { borderRadius: 10, marginTop: 4 },
+    saveButtonContent: { paddingVertical: 6 },
+  });
+}

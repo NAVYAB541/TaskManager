@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, Modal } from 'react-native';
 import { Button, Surface, Icon, TouchableRipple, TextInput } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { COLORS } from '../constants/Theme';
+import { useTheme, AppColors } from '../context/ThemeContext';
 
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 type Props = NativeStackScreenProps<RootStackParamList, 'FocusMode'>;
@@ -24,6 +25,9 @@ const RATINGS: { value: FeelingRating; icon: string; label: string; color: strin
 
 export default function FocusModeScreen({ navigation, route }: Props) {
   const { task } = route.params;
+  const { colors } = useTheme();
+  const modalStyles = useMemo(() => makeModalStyles(colors), [colors]);
+
   const [seconds, setSeconds] = useState(0);
   const [running, setRunning] = useState(true);
   const [modalStep, setModalStep] = useState<ModalStep>(null);
@@ -154,9 +158,9 @@ export default function FocusModeScreen({ navigation, route }: Props) {
       {/* Step 1 — Feeling rating */}
       <Modal visible={modalStep === 'feeling'} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Surface style={styles.modalCard} elevation={4}>
-            <Text style={styles.modalTitle}>How'd that feel?</Text>
-            <Text style={styles.modalSub}>
+          <Surface style={modalStyles.modalCard} elevation={4}>
+            <Text style={modalStyles.modalTitle}>How'd that feel?</Text>
+            <Text style={modalStyles.modalSub}>
               You focused for {formatTime(seconds)}
               {task.estimateMinutes ? ` · estimated ${task.estimateMinutes} min` : ''}
             </Text>
@@ -182,20 +186,21 @@ export default function FocusModeScreen({ navigation, route }: Props) {
       {/* Step 3 — Update next action (only when "Not yet") */}
       <Modal visible={modalStep === 'next-action'} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Surface style={styles.modalCard} elevation={4}>
+          <Surface style={modalStyles.modalCard} elevation={4}>
             <View style={{ alignSelf: 'center', marginBottom: 12 }}>
               <Icon source="arrow-right-circle-outline" size={44} color={COLORS.primary} />
             </View>
-            <Text style={styles.modalTitle}>Where did you leave off?</Text>
-            <Text style={styles.modalSub}>Set your next action so you know exactly where to pick up.</Text>
+            <Text style={modalStyles.modalTitle}>Where did you leave off?</Text>
+            <Text style={modalStyles.modalSub}>Set your next action so you know exactly where to pick up.</Text>
             <TextInput
               value={nextActionDraft}
               onChangeText={setNextActionDraft}
               mode="outlined"
               placeholder="e.g. Write the conclusion paragraph"
-              outlineColor="#ddd"
+              outlineColor={colors.border}
               activeOutlineColor={COLORS.primary}
-              style={styles.nextActionInput}
+              style={modalStyles.nextActionInput}
+              backgroundColor={colors.surface}
               multiline
             />
             <Button
@@ -211,7 +216,7 @@ export default function FocusModeScreen({ navigation, route }: Props) {
               mode="text"
               onPress={() => saveAndExit(false)}
               disabled={submitting}
-              textColor="#aaa"
+              textColor={colors.textMuted}
               compact
             >
               Skip
@@ -223,12 +228,12 @@ export default function FocusModeScreen({ navigation, route }: Props) {
       {/* Step 2 — Task completion */}
       <Modal visible={modalStep === 'completed'} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Surface style={styles.modalCard} elevation={4}>
+          <Surface style={modalStyles.modalCard} elevation={4}>
             <View style={{ alignSelf: 'center', marginBottom: 12 }}>
               <Icon source="checkbox-marked-circle-outline" size={48} color={COLORS.primary} />
             </View>
-            <Text style={styles.modalTitle}>Did you finish the task?</Text>
-            <Text style={styles.modalSub}>"{task.title}"</Text>
+            <Text style={modalStyles.modalTitle}>Did you finish the task?</Text>
+            <Text style={modalStyles.modalSub}>"{task.title}"</Text>
             <View style={styles.completionRow}>
               <Button
                 mode="contained"
@@ -258,6 +263,29 @@ export default function FocusModeScreen({ navigation, route }: Props) {
   );
 }
 
+// Modal-specific styles that respond to theme
+function makeModalStyles(colors: AppColors) {
+  return StyleSheet.create({
+    modalCard: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      padding: 28,
+      paddingBottom: 52,
+    },
+    modalTitle: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 6,
+    },
+    modalSub: { fontSize: 14, color: colors.textMuted, textAlign: 'center', marginBottom: 28 },
+    nextActionInput: { backgroundColor: colors.surface, marginBottom: 16 },
+  });
+}
+
+// Main screen styles — always dark (immersive focus mode)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f0c29', padding: 24 },
 
@@ -322,21 +350,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
-  modalCard: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 28,
-    paddingBottom: 52,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1a1a1a',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  modalSub: { fontSize: 14, color: '#888', textAlign: 'center', marginBottom: 28 },
   ratingRow: { flexDirection: 'row', justifyContent: 'space-around' },
   ratingBtn: { borderRadius: 16, overflow: 'hidden' },
   ratingBtnInner: { alignItems: 'center', padding: 16, gap: 8 },
@@ -344,5 +357,4 @@ const styles = StyleSheet.create({
 
   completionRow: { flexDirection: 'column', gap: 10, marginTop: 8 },
   completionBtn: { borderRadius: 10, marginBottom: 8 },
-  nextActionInput: { backgroundColor: 'white', marginBottom: 16 },
 });

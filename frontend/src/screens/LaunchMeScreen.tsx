@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
 import {
   Button,
@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootStackParamList, Task } from '../types';
 import { COLORS } from '../constants/Theme';
 import dayjs from 'dayjs';
+import { useTheme, AppColors } from '../context/ThemeContext';
 
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 const TIME_WINDOWS = [15, 30, 60, 90, 120] as const;
@@ -61,6 +62,9 @@ type LaunchItem = {
 };
 
 export default function LaunchMeScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [window, setWindow]       = useState<TimeWindow>(30);
   const [items, setItems]         = useState<LaunchItem[]>([]);
   const [loading, setLoading]     = useState(false);
@@ -174,7 +178,7 @@ export default function LaunchMeScreen({ navigation }: Props) {
         <IconButton
           icon="cog-outline"
           size={20}
-          iconColor="#aaa"
+          iconColor={colors.textMuted}
           onPress={() => { setDraftPrefs(prefs); setShowSettings(true); }}
           style={{ margin: 0 }}
         />
@@ -188,7 +192,7 @@ export default function LaunchMeScreen({ navigation }: Props) {
             key={w}
             selected={window === w}
             onPress={() => setWindow(w)}
-            selectedColor={COLORS.primary}
+            selectedColor={colors.primary}
             style={[styles.windowChip, window === w && styles.windowChipSelected]}
             showSelectedCheck={false}
           >
@@ -200,10 +204,10 @@ export default function LaunchMeScreen({ navigation }: Props) {
       <Text style={styles.sectionLabel}>Best tasks for right now</Text>
 
       {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : items.length === 0 ? (
         <View style={styles.emptyState}>
-          <Icon source="check-all" size={56} color="#ddd" />
+          <Icon source="check-all" size={56} color={colors.border} />
           <Text style={styles.emptyText}>No tasks fit in {fmtTime(window)}</Text>
           <Text style={styles.emptySubtext}>
             Try a longer window, or add tasks with shorter estimates.
@@ -230,7 +234,7 @@ export default function LaunchMeScreen({ navigation }: Props) {
                   <Text style={styles.taskTitle} numberOfLines={2}>{item.task.title}</Text>
                   {!!item.task.nextAction && (
                     <View style={styles.nextActionRow}>
-                      <Icon source="arrow-right" size={14} color="#888" />
+                      <Icon source="arrow-right" size={14} color={colors.textMuted} />
                       <Text style={styles.nextActionText} numberOfLines={1}>{item.task.nextAction}</Text>
                     </View>
                   )}
@@ -265,7 +269,7 @@ export default function LaunchMeScreen({ navigation }: Props) {
             <Button
               mode="contained"
               onPress={() => startTask(item)}
-              buttonColor={COLORS.primary}
+              buttonColor={colors.primary}
               style={styles.startBtn}
               compact
             >
@@ -305,7 +309,7 @@ export default function LaunchMeScreen({ navigation }: Props) {
               </View>
             ))}
 
-            <Button mode="contained" buttonColor={COLORS.primary} onPress={() => savePrefs(draftPrefs)} style={{ marginTop: 8 }}>
+            <Button mode="contained" buttonColor={colors.primary} onPress={() => savePrefs(draftPrefs)} style={{ marginTop: 8 }}>
               Save
             </Button>
           </Surface>
@@ -315,81 +319,83 @@ export default function LaunchMeScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7f8fc' },
-  content: { padding: 16, paddingBottom: 40 },
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    content: { padding: 16, paddingBottom: 40 },
 
-  energyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: 'white',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
-  },
-  energyLabel: { fontSize: 12, color: '#aaa', fontWeight: '500' },
-  energyValue: { fontSize: 17, fontWeight: '700' },
+    energyBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 24,
+    },
+    energyLabel: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
+    energyValue: { fontSize: 17, fontWeight: '700' },
 
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#aaa',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
+    sectionLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: 10,
+    },
 
-  windowRow: { flexDirection: 'row', gap: 8, marginBottom: 28, paddingBottom: 4 },
-  windowChip: { backgroundColor: '#f0f0f0' },
-  windowChipSelected: { backgroundColor: COLORS.primary + '20' },
+    windowRow: { flexDirection: 'row', gap: 8, marginBottom: 28, paddingBottom: 4 },
+    windowChip: { backgroundColor: colors.surfaceVariant },
+    windowChipSelected: { backgroundColor: colors.primary + '20' },
 
-  taskCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
-  },
-  taskRank: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.primary + '18',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  taskRankText: { fontSize: 13, fontWeight: '800', color: COLORS.primary },
+    taskCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 10,
+    },
+    taskRank: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.primary + '18',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    taskRankText: { fontSize: 13, fontWeight: '800', color: colors.primary },
 
-  projectLabel: { fontSize: 11, color: '#aaa', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-  taskTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', marginBottom: 4 },
-  taskDesc: { fontSize: 12, color: '#888', marginBottom: 6, lineHeight: 17 },
+    projectLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+    taskTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 4 },
+    taskDesc: { fontSize: 12, color: colors.textMuted, marginBottom: 6, lineHeight: 17 },
 
-  nextActionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginBottom: 8 },
-  nextActionText: { flex: 1, fontSize: 13, color: '#666', lineHeight: 18 },
+    nextActionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginBottom: 8 },
+    nextActionText: { flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
 
-  metaRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  timeBadge: { backgroundColor: COLORS.primary + '15' },
-  timeBadgeText: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
-  dateBadge: { backgroundColor: '#f0f0f0' },
-  dateBadgeText: { fontSize: 12, color: '#555' },
+    metaRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+    timeBadge: { backgroundColor: colors.primary + '15' },
+    timeBadgeText: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+    dateBadge: { backgroundColor: colors.surfaceVariant },
+    dateBadgeText: { fontSize: 12, color: colors.textSecondary },
 
-  startBtn: { borderRadius: 10, flexShrink: 0 },
+    startBtn: { borderRadius: 10, flexShrink: 0 },
 
-  emptyState: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 17, fontWeight: '700', color: '#333' },
-  emptySubtext: { fontSize: 14, color: '#888', textAlign: 'center', lineHeight: 20 },
+    emptyState: { alignItems: 'center', paddingTop: 60, gap: 10 },
+    emptyText: { fontSize: 17, fontWeight: '700', color: colors.text },
+    emptySubtext: { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
 
-  // Settings modal
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
-  modalSub: { fontSize: 13, color: '#888', marginBottom: 20, lineHeight: 18 },
-  prefRow: { marginBottom: 16 },
-  prefLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 8 },
-  prefSegmented: {},
-});
+    // Settings modal
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    modalTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+    modalSub: { fontSize: 13, color: colors.textMuted, marginBottom: 20, lineHeight: 18 },
+    prefRow: { marginBottom: 16 },
+    prefLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 8 },
+    prefSegmented: {},
+  });
+}

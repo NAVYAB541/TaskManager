@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { RootStackParamList, Task } from '../types';
 import { COLORS } from '../constants/Theme';
 import dayjs from 'dayjs';
 import { cancelTaskReminder } from '../utils/notifications';
+import { useTheme, AppColors } from '../context/ThemeContext';
 
 const API_URL = 'https://taskmanager-pn0w.onrender.com/tasks';
 
@@ -39,8 +40,9 @@ function priorityColor(p?: string) {
   return COLORS.secondary;
 }
 
-function ProductivityBadge({ score }: { score: number }) {
-  const ringColor = score >= 80 ? '#4CAF50' : score >= 50 ? COLORS.primary : '#FF9800';
+function ProductivityBadge({ score, colors }: { score: number; colors: AppColors }) {
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const ringColor = score >= 80 ? '#4CAF50' : score >= 50 ? colors.primary : '#FF9800';
   const iconName = score >= 80 ? 'rocket-launch' : score >= 50 ? 'lightning-bolt' : 'sprout';
   return (
     <Surface style={styles.scoreCard} elevation={1}>
@@ -69,6 +71,9 @@ const SORT_OPTIONS: { label: string; value: 'priority' | 'dueDate' | 'title'; ic
 export default function TaskListScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'TaskList'>) {
+  const { colors, theme, toggleTheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allTopLevel, setAllTopLevel] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,6 +85,19 @@ export default function TaskListScreen({
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [subtasksByParent, setSubtasksByParent] = useState<Record<string, Task[]>>({});
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <IconButton
+          icon={theme === 'dark' ? 'white-balance-sunny' : 'moon-waning-crescent'}
+          iconColor={colors.primary}
+          size={22}
+          onPress={toggleTheme}
+        />
+      ),
+    });
+  }, [theme, colors]);
 
   const toggleExpanded = (id: string) => {
     setExpandedTasks(prev => {
@@ -258,22 +276,22 @@ export default function TaskListScreen({
               {/* Next step: derived from first incomplete subtask */}
               {!item.completed && nextIncomplete && (
                 <View style={styles.nextActionRow}>
-                  <Icon source="arrow-right-circle-outline" size={13} color={COLORS.primary} />
+                  <Icon source="arrow-right-circle-outline" size={13} color={colors.primary} />
                   <Text style={styles.nextActionText} numberOfLines={1}>{nextIncomplete.title}</Text>
                 </View>
               )}
 
               {item.dueDate && (
                 <View style={styles.dueDateRow}>
-                  <Icon source="calendar" size={13} color={isOverdue ? COLORS.danger : '#888'} />
-                  <Text style={[styles.dueDate, isOverdue && { color: COLORS.danger }]}>
+                  <Icon source="calendar" size={13} color={isOverdue ? colors.danger : colors.textMuted} />
+                  <Text style={[styles.dueDate, isOverdue && { color: colors.danger }]}>
                     {dayjs(item.dueDate).format('DD MMM YYYY')}
                   </Text>
                 </View>
               )}
             </View>
 
-            <IconButton icon="delete-outline" iconColor="#ccc" size={20}
+            <IconButton icon="delete-outline" iconColor={colors.textDisabled} size={20}
               onPress={() => deleteTask(item)} style={styles.deleteBtn} />
           </TouchableOpacity>
 
@@ -289,7 +307,7 @@ export default function TaskListScreen({
               <Icon
                 source={isExpanded ? 'chevron-up' : 'chevron-down'}
                 size={18}
-                color="#aaa"
+                color={colors.textMuted}
               />
             </TouchableOpacity>
           )}
@@ -302,7 +320,7 @@ export default function TaskListScreen({
               <Surface key={sub.id} style={[styles.subtaskItem, sub.completed && styles.subtaskItemDone]} elevation={0}>
                 <IconButton
                   icon={sub.completed ? 'check-circle' : 'circle-outline'}
-                  iconColor={sub.completed ? COLORS.secondary : '#bbb'}
+                  iconColor={sub.completed ? colors.secondary : colors.textDisabled}
                   size={20}
                   onPress={() => toggleTask(sub)}
                   style={{ margin: 0 }}
@@ -321,7 +339,7 @@ export default function TaskListScreen({
                     )}
                     <Text style={styles.subtaskItemEst}>{sub.estimateMinutes ?? 30} min</Text>
                   </View>
-                  <Icon source="chevron-right" size={16} color="#ddd" />
+                  <Icon source="chevron-right" size={16} color={colors.border} />
                 </TouchableOpacity>
               </Surface>
             ))}
@@ -335,7 +353,7 @@ export default function TaskListScreen({
 
   return (
     <View style={styles.container}>
-      <ProductivityBadge score={productivityScore} />
+      <ProductivityBadge score={productivityScore} colors={colors} />
 
       {/* ── Filters ── */}
       <View style={styles.filterSection}>
@@ -347,7 +365,7 @@ export default function TaskListScreen({
                 selected={filter === f}
                 onPress={() => setFilter(f)}
                 style={styles.filterChip}
-                selectedColor={COLORS.primary}
+                selectedColor={colors.primary}
                 compact
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -364,7 +382,7 @@ export default function TaskListScreen({
                 icon={currentSort.icon}
                 onPress={() => setSortMenuVisible(true)}
                 compact
-                textColor={COLORS.primary}
+                textColor={colors.primary}
                 style={styles.sortBtn}
               >
                 {currentSort.label}
@@ -444,17 +462,17 @@ export default function TaskListScreen({
         onPress={() => navigation.navigate('AddTask')}
         style={styles.addButton}
         contentStyle={styles.addButtonContent}
-        buttonColor={COLORS.primary}
+        buttonColor={colors.primary}
       >
         Add Task
       </Button>
 
       {/* ── Task list ── */}
       {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 32 }} />
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 32 }} />
       ) : tasks.length === 0 ? (
         <View style={styles.emptyState}>
-          <Icon source="check-circle-outline" size={64} color="#ccc" />
+          <Icon source="check-circle-outline" size={64} color={colors.textDisabled} />
           <Text style={styles.emptyText}>No tasks here</Text>
           <Text style={styles.emptySubtext}>Try changing your filters or add a new task.</Text>
         </View>
@@ -471,105 +489,107 @@ export default function TaskListScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f7f8fc' },
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, padding: 16, backgroundColor: colors.background },
 
-  // Productivity card
-  scoreCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: 'white',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 12,
-  },
-  scoreLabel: { fontSize: 12, color: '#888', fontWeight: '500', marginBottom: 2 },
-  scoreValue: { fontSize: 22, fontWeight: '800', marginBottom: 4 },
-  progressBar: { borderRadius: 4, height: 6 },
+    // Productivity card
+    scoreCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: colors.surface,
+      padding: 14,
+      borderRadius: 14,
+      marginBottom: 12,
+    },
+    scoreLabel: { fontSize: 12, color: colors.textMuted, fontWeight: '500', marginBottom: 2 },
+    scoreValue: { fontSize: 22, fontWeight: '800', marginBottom: 4 },
+    progressBar: { borderRadius: 4, height: 6 },
 
-  // Filters
-  filterSection: { gap: 6, marginBottom: 12 },
-  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  chipScroll: { paddingVertical: 2, paddingRight: 8, gap: 6, flexDirection: 'row' },
-  filterChip: { backgroundColor: '#f0f0f0' },
-  sortBtn: { borderColor: COLORS.primary, flexShrink: 0 },
+    // Filters
+    filterSection: { gap: 6, marginBottom: 12 },
+    filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    chipScroll: { paddingVertical: 2, paddingRight: 8, gap: 6, flexDirection: 'row' },
+    filterChip: { backgroundColor: colors.surfaceVariant },
+    sortBtn: { borderColor: colors.primary, flexShrink: 0 },
 
-  // Launch Me
-  launchButton: { borderRadius: 12, marginBottom: 10 },
-  launchButtonContent: { paddingVertical: 4 },
+    // Launch Me
+    launchButton: { borderRadius: 12, marginBottom: 10 },
+    launchButtonContent: { paddingVertical: 4 },
 
-  // Add button
-  addButton: { borderRadius: 12, marginBottom: 14 },
-  addButtonContent: { paddingVertical: 4 },
+    // Add button
+    addButton: { borderRadius: 12, marginBottom: 14 },
+    addButtonContent: { paddingVertical: 4 },
 
-  // Task card
-  task: {
-    marginBottom: 10,
-    backgroundColor: 'white',
-    borderRadius: 14,
-    borderLeftWidth: 4,
-    overflow: 'hidden',
-  },
-  taskInner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 10,
-    gap: 4,
-  },
-  overdueTask: { backgroundColor: '#fff5f5' },
-  checkBtn: { margin: 0 },
-  deleteBtn: { margin: 0 },
-  taskTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginBottom: 6, marginTop: 4 },
-  completedTitle: { textDecorationLine: 'line-through', color: '#aaa' },
+    // Task card
+    task: {
+      marginBottom: 10,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderLeftWidth: 4,
+      overflow: 'hidden',
+    },
+    taskInner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      padding: 10,
+      gap: 4,
+    },
+    overdueTask: { backgroundColor: '#fff5f5' },
+    checkBtn: { margin: 0 },
+    deleteBtn: { margin: 0 },
+    taskTitle: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 6, marginTop: 4 },
+    completedTitle: { textDecorationLine: 'line-through', color: colors.textMuted },
 
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6 },
-  priorityChip: {},
-  priorityChipText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  categoryChip: { backgroundColor: '#ede9ff' },
-  categoryChipText: { fontSize: 11, color: '#6C63FF', fontWeight: '600' },
-  overdueChip: { backgroundColor: '#ffebee' },
-  overdueChipText: { fontSize: 11, color: '#e53935', fontWeight: '700' },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6 },
+    priorityChip: {},
+    priorityChipText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+    categoryChip: { backgroundColor: '#ede9ff' },
+    categoryChipText: { fontSize: 11, color: '#6C63FF', fontWeight: '600' },
+    overdueChip: { backgroundColor: '#ffebee' },
+    overdueChipText: { fontSize: 11, color: '#e53935', fontWeight: '700' },
 
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
-  tagChip: {},
-  tagChipText: { color: 'white', fontSize: 11, fontWeight: '600' },
+    tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 },
+    tagChip: {},
+    tagChipText: { color: 'white', fontSize: 11, fontWeight: '600' },
 
-  subtaskCountChip: { backgroundColor: '#f0f0f0' },
-  subtaskCountText: { fontSize: 11, color: '#666', fontWeight: '600' },
+    subtaskCountChip: { backgroundColor: colors.surfaceVariant },
+    subtaskCountText: { fontSize: 11, color: colors.textSecondary, fontWeight: '600' },
 
-  accordionRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: '#f0f0f0',
-  },
-  accordionProgress: {
-    flex: 1, height: 4, borderRadius: 2, backgroundColor: '#f0f0f0', overflow: 'hidden',
-  },
-  accordionProgressFill: { height: '100%', backgroundColor: COLORS.secondary, borderRadius: 2 },
-  accordionLabel: { fontSize: 12, color: '#aaa', fontWeight: '600' },
+    accordionRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 14, paddingVertical: 10,
+      borderTopWidth: 1, borderTopColor: colors.borderLight,
+    },
+    accordionProgress: {
+      flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.borderLight, overflow: 'hidden',
+    },
+    accordionProgressFill: { height: '100%', backgroundColor: colors.secondary, borderRadius: 2 },
+    accordionLabel: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
 
-  subtaskGroup: { marginLeft: 16, marginTop: 2, marginBottom: 8 },
-  subtaskItem: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'white', borderRadius: 10, marginBottom: 4,
-    borderWidth: 1, borderColor: '#f0f0f0', paddingRight: 10,
-  },
-  subtaskItemDone: { opacity: 0.5 },
-  subtaskContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  subtaskItemTitle: { fontSize: 13, fontWeight: '600', color: '#333' },
-  subtaskItemDoneText: { textDecorationLine: 'line-through', color: '#bbb' },
-  subtaskItemDesc: { fontSize: 11, color: '#999', marginTop: 1 },
-  subtaskItemEst: { fontSize: 11, color: COLORS.primary, marginTop: 1 },
+    subtaskGroup: { marginLeft: 16, marginTop: 2, marginBottom: 8 },
+    subtaskItem: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: colors.surface, borderRadius: 10, marginBottom: 4,
+      borderWidth: 1, borderColor: colors.borderLight, paddingRight: 10,
+    },
+    subtaskItemDone: { opacity: 0.5 },
+    subtaskContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+    subtaskItemTitle: { fontSize: 13, fontWeight: '600', color: colors.text },
+    subtaskItemDoneText: { textDecorationLine: 'line-through', color: colors.textDisabled },
+    subtaskItemDesc: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
+    subtaskItemEst: { fontSize: 11, color: colors.primary, marginTop: 1 },
 
-  nextActionRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  nextActionText: { fontSize: 12, color: COLORS.primary, flex: 1, fontStyle: 'italic' },
+    nextActionRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+    nextActionText: { fontSize: 12, color: colors.primary, flex: 1, fontStyle: 'italic' },
 
-  dueDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  dueDate: { fontSize: 12, color: '#888' },
+    dueDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+    dueDate: { fontSize: 12, color: colors.textMuted },
 
-  // Empty state
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80, gap: 8 },
-  emptyText: { fontSize: 18, fontWeight: '700', color: '#333' },
-  emptySubtext: { fontSize: 14, color: '#888', textAlign: 'center' },
-});
+    // Empty state
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80, gap: 8 },
+    emptyText: { fontSize: 18, fontWeight: '700', color: colors.text },
+    emptySubtext: { fontSize: 14, color: colors.textMuted, textAlign: 'center' },
+  });
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { COLORS } from '../constants/Theme';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import { useTheme, AppColors } from '../context/ThemeContext';
 
 const BASE_URL = 'https://taskmanager-pn0w.onrender.com';
 type Props = NativeStackScreenProps<RootStackParamList, 'AIPlanner'>;
@@ -40,6 +41,8 @@ const ENERGY_COLOR = {
 
 export default function AIPlannerScreen({ navigation, route }: Props) {
   const { title, description: initialDesc, category, priority, dueDate, existingTaskId } = route.params;
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [description, setDescription] = useState(initialDesc);
   const [totalHours, setTotalHours] = useState('');
@@ -228,8 +231,9 @@ export default function AIPlannerScreen({ navigation, route }: Props) {
             multiline
             numberOfLines={4}
             style={styles.input}
-            outlineColor="#ddd"
+            outlineColor={colors.border}
             activeOutlineColor={COLORS.primary}
+            backgroundColor={colors.surface}
           />
 
           <TextInput
@@ -239,8 +243,9 @@ export default function AIPlannerScreen({ navigation, route }: Props) {
             mode="outlined"
             keyboardType="decimal-pad"
             style={styles.input}
-            outlineColor="#ddd"
+            outlineColor={colors.border}
             activeOutlineColor={COLORS.primary}
+            backgroundColor={colors.surface}
             left={<TextInput.Icon icon="clock-outline" />}
           />
 
@@ -275,7 +280,7 @@ export default function AIPlannerScreen({ navigation, route }: Props) {
                 <Icon source="file-pdf-box" size={28} color={COLORS.danger} />
               )}
               <Text style={styles.fileName} numberOfLines={1}>{f.name}</Text>
-              <Button mode="text" compact textColor="#aaa" onPress={() => removeFile(i)}>✕</Button>
+              <Button mode="text" compact textColor={colors.textMuted} onPress={() => removeFile(i)}>✕</Button>
             </Surface>
           ))}
 
@@ -406,101 +411,103 @@ export default function AIPlannerScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: 16, paddingBottom: 60 },
+function makeStyles(colors: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    content: { padding: 16, paddingBottom: 60 },
 
-  taskHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: COLORS.primary + '12',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-  },
-  taskHeaderTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: COLORS.primary },
+    taskHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: COLORS.primary + '12',
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 20,
+    },
+    taskHeaderTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: COLORS.primary },
 
-  input: { backgroundColor: 'white', marginBottom: 16 },
+    input: { backgroundColor: colors.surface, marginBottom: 16 },
 
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#aaa',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
+    sectionLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: 10,
+    },
 
-  attachRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  attachBtn: { flex: 1, borderColor: '#ddd' },
+    attachRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+    attachBtn: { flex: 1, borderColor: colors.border },
 
-  fileChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  fileThumb: { width: 36, height: 36, borderRadius: 6 },
-  fileName: { flex: 1, fontSize: 13, color: '#444' },
+    fileChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      padding: 10,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+    },
+    fileThumb: { width: 36, height: 36, borderRadius: 6 },
+    fileName: { flex: 1, fontSize: 13, color: colors.textSecondary },
 
-  planBtn: { borderRadius: 12, marginTop: 8 },
-  planBtnContent: { paddingVertical: 6 },
+    planBtn: { borderRadius: 12, marginTop: 8 },
+    planBtnContent: { paddingVertical: 6 },
 
-  loadingBlock: { alignItems: 'center', paddingTop: 40, gap: 16 },
-  loadingText: { fontSize: 15, color: '#888' },
+    loadingBlock: { alignItems: 'center', paddingTop: 40, gap: 16 },
+    loadingText: { fontSize: 15, color: colors.textMuted },
 
-  feasBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-  },
-  feasText: { flex: 1, fontSize: 14, color: '#444', lineHeight: 20 },
+    feasBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      padding: 14,
+      marginBottom: 20,
+      borderLeftWidth: 4,
+    },
+    feasText: { flex: 1, fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
 
-  subtaskCard: {
-    backgroundColor: 'white',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-  },
-  subtaskTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  subtaskIndex: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  subtaskIndexText: { fontSize: 12, fontWeight: '800', color: COLORS.primary },
-  subtaskTitle: { flex: 1, backgroundColor: 'transparent', fontSize: 15, fontWeight: '600' },
+    subtaskCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 10,
+    },
+    subtaskTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+    subtaskIndex: {
+      width: 28, height: 28, borderRadius: 14,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    subtaskIndexText: { fontSize: 12, fontWeight: '800', color: COLORS.primary },
+    subtaskTitle: { flex: 1, backgroundColor: 'transparent', fontSize: 15, fontWeight: '600' },
 
-  subtaskDesc: { fontSize: 13, color: '#666', lineHeight: 18, marginBottom: 8 },
+    subtaskDesc: { fontSize: 13, color: colors.textSecondary, lineHeight: 18, marginBottom: 8 },
 
-  subtaskNextAction: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: COLORS.primary + '08',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 10,
-  },
-  subtaskNextInput: { flex: 1, backgroundColor: 'transparent', fontSize: 13 },
+    subtaskNextAction: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 6,
+      backgroundColor: COLORS.primary + '08',
+      borderRadius: 8,
+      padding: 8,
+      marginBottom: 10,
+    },
+    subtaskNextInput: { flex: 1, backgroundColor: 'transparent', fontSize: 13 },
 
-  subtaskMeta: { flexDirection: 'row', gap: 8 },
-  timeBadge: { backgroundColor: COLORS.primary + '15' },
-  timeBadgeText: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
-  energyBadge: {},
-  energyBadgeText: { fontSize: 12, fontWeight: '600' },
+    subtaskMeta: { flexDirection: 'row', gap: 8 },
+    timeBadge: { backgroundColor: COLORS.primary + '15' },
+    timeBadgeText: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
+    energyBadge: {},
+    energyBadgeText: { fontSize: 12, fontWeight: '600' },
 
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  replanBtn: { flex: 1, borderColor: COLORS.primary },
-  saveBtn: { flex: 2, borderRadius: 10 },
-});
+    actionRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+    replanBtn: { flex: 1, borderColor: COLORS.primary },
+    saveBtn: { flex: 2, borderRadius: 10 },
+  });
+}
