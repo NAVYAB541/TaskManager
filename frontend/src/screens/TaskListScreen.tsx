@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useMemo, useLayoutEffect, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Animated,
 } from 'react-native';
 import {
   Chip,
@@ -38,6 +39,38 @@ function priorityColor(p?: string) {
   if (p === 'high') return COLORS.danger;
   if (p === 'medium') return COLORS.primary;
   return COLORS.secondary;
+}
+
+function ThemeToggle({ theme, toggleTheme, colors }: { theme: string; toggleTheme: () => void; colors: AppColors }) {
+  const anim = useRef(new Animated.Value(theme === 'dark' ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, { toValue: theme === 'dark' ? 1 : 0, tension: 120, friction: 10, useNativeDriver: false }).start();
+  }, [theme]);
+
+  const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [2, 28] });
+  const trackColor = anim.interpolate({ inputRange: [0, 1], outputRange: [colors.toggleTrack, '#3a3a5c'] });
+
+  return (
+    <TouchableOpacity onPress={toggleTheme} activeOpacity={0.85} style={{ marginRight: 8 }}>
+      <Animated.View style={{ width: 54, height: 28, borderRadius: 14, backgroundColor: trackColor, justifyContent: 'center' }}>
+        {/* Sun icon — left side */}
+        <Icon source="white-balance-sunny" size={13} color={theme === 'light' ? '#f59e0b' : colors.textDisabled}
+          style={{ position: 'absolute', left: 7 } as any} />
+        {/* Moon icon — right side */}
+        <Icon source="moon-waning-crescent" size={13} color={theme === 'dark' ? '#a5b4fc' : colors.textDisabled}
+          style={{ position: 'absolute', right: 7 } as any} />
+        {/* Sliding thumb */}
+        <Animated.View style={{
+          width: 22, height: 22, borderRadius: 11,
+          backgroundColor: colors.toggleThumb,
+          transform: [{ translateX }],
+          shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
+          elevation: 2,
+        }} />
+      </Animated.View>
+    </TouchableOpacity>
+  );
 }
 
 function ProductivityBadge({ score, colors }: { score: number; colors: AppColors }) {
@@ -89,12 +122,7 @@ export default function TaskListScreen({
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <IconButton
-          icon={theme === 'dark' ? 'white-balance-sunny' : 'moon-waning-crescent'}
-          iconColor={colors.primary}
-          size={22}
-          onPress={toggleTheme}
-        />
+        <ThemeToggle theme={theme} toggleTheme={toggleTheme} colors={colors} />
       ),
     });
   }, [theme, colors]);
@@ -536,7 +564,7 @@ function makeStyles(colors: AppColors) {
       padding: 10,
       gap: 4,
     },
-    overdueTask: { backgroundColor: '#fff5f5' },
+    overdueTask: { backgroundColor: colors.overdueBackground },
     checkBtn: { margin: 0 },
     deleteBtn: { margin: 0 },
     taskTitle: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 6, marginTop: 4 },
@@ -545,8 +573,8 @@ function makeStyles(colors: AppColors) {
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6 },
     priorityChip: {},
     priorityChipText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-    categoryChip: { backgroundColor: '#ede9ff' },
-    categoryChipText: { fontSize: 11, color: '#6C63FF', fontWeight: '600' },
+    categoryChip: { backgroundColor: colors.categoryChipBg },
+    categoryChipText: { fontSize: 11, color: colors.categoryChipText, fontWeight: '600' },
     overdueChip: { backgroundColor: '#ffebee' },
     overdueChipText: { fontSize: 11, color: '#e53935', fontWeight: '700' },
 
